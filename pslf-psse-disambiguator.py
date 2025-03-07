@@ -165,7 +165,7 @@ def setup_():
     # set fta here
     if IS_BUNDLED:
         pass 
-        # set_file_type_association(sys.executable, "psse.ico", ".sav")
+        set_file_type_association(sys.executable, "ppd.ico", ".sav")
     else:
         print("> skipping set fta for unbundled files")
 
