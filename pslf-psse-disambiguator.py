@@ -5,8 +5,12 @@ import subprocess
 import sys
 from pathlib import Path
 import importlib.util
+import time
 from typing import Callable, Any
 import multiprocessing
+import threading
+from contextlib import redirect_stderr, redirect_stdout
+import io
 
 PPD_DIR = Path(__file__).resolve().parent
 
@@ -44,6 +48,8 @@ BYTE_HINTS = {
         (0, b'FuP_pHySPCD%'),
     )
 }
+
+CLOSE_THREAD = None
 
 def is_valid_pslf_version(path):
     pass # use 'Pslf.exe --version' and checkoutput to see if version is greater than or equal to 23.1.0
@@ -200,7 +206,7 @@ def history_check(file):
     else:
         return ''
 
-def open_check_pslf(file, prog_dir):
+def open_check_pslf(file, prog_dir, queue_: multiprocessing.Queue):
     # add paths to import search paths
     pslf_py_path = Path(prog_dir) / PSLF_PY_SUFFIX
     sys.path.append(str(pslf_py_path.parent))
@@ -210,7 +216,8 @@ def open_check_pslf(file, prog_dir):
         from PSLF_PYTHON import Pslf, PSLFInstance, exit_pslf
         path = Path(PSLF_EXE_SUFFIX).name
         args = [path, "-w", str(Path(file).parent), "-s"]
-        popen_obj = subprocess.Popen(args) # Call subprocess
+        popen_obj = subprocess.Popen(args,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT) # Call subprocess
         PSLFInstance.instance = str(popen_obj.pid)
 
         # check here
@@ -219,6 +226,7 @@ def open_check_pslf(file, prog_dir):
             pslf_good = True
         except Exception:
             pslf_good = False
+        queue_.put('pslf' if pslf_good else '')
         
         exit_pslf()
         
@@ -227,21 +235,22 @@ def open_check_pslf(file, prog_dir):
         traceback.print_exception(e)
     return pslf_good
 
-def open_check_psse(file, prog_dir):
-    psse_py_path = Path(prog_dir) / PSSE_PY_SUFFIX
-    sys.path.append(str(psse_py_path.parent))
-    psse_good = True
-    try:
-        import psse35 # type: ignore
-        import psspy # type: ignore
-        psspy.psseinit()
-        psse_good = psspy.case(file) == 0
-        psspy.pssehalt_2()
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exception(e)
-    
+def open_check_psse(file, prog_dir, queue_: multiprocessing.Queue):
+    with redirect_stdout(io.StringIO()) as out:
+        psse_py_path = Path(prog_dir) / PSSE_PY_SUFFIX
+        sys.path.append(str(psse_py_path.parent))
+        psse_good = True
+        try:
+            import psse35 # type: ignore
+            import psspy # type: ignore
+            psspy.psseinit()
+            queue_.put('psse' if psspy.case(file) == 0 else '')
+            psspy.pssehalt_2()
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exception(e)
+    # print("out:", out.getvalue())
     return psse_good
 
 
@@ -249,17 +258,31 @@ def open_check(file):
     configs = load_config()
     if configs is None:
         return ''
-    pslf_good = open_check_pslf(file, configs['pslf'])
-    psse_good = open_check_psse(file, configs['psse'])
-    print(pslf_good, psse_good)
-    if pslf_good == psse_good:
-        return ''
-    elif pslf_good:
-        return 'pslf'
-    elif psse_good:
-        return 'psse'
-    else:
-        raise ValueError("invalid pslf_good and psse_good values in open_check")
+    q = multiprocessing.Queue()
+    p1 = multiprocessing.Process(target=open_check_pslf,
+            args=(file, configs['pslf'], q), daemon=True)
+    p1.start()
+    p2 = multiprocessing.Process(target=open_check_psse,
+            args=(file, configs['psse'], q), daemon=True)
+    p2.start()
+    
+    def join_processes(p1, p2):
+        p1.join()
+        p2.join()
+    
+    CLOSE_THREAD = threading.Thread(target=join_processes, args=(p1, p2))
+    CLOSE_THREAD.start()
+
+    checked = 0
+    result = ''
+    while checked < 2:
+        val = q.get()
+        checked += 1
+        if val:
+            result = val
+            break
+    
+    return result
 
 def run_program(program, file):
     command_format = 'cd "{work_dir}" & "{exe}" "{file}"'
@@ -318,23 +341,17 @@ def history_set(file, program):
     
 
 def main():
-    # print(sys.argv)
     # try loading config.json
     configs = load_config()
+
+    # show setup window
     if configs is None or len(sys.argv) < 2:
-        # show setup window
         setup_()
         configs = load_config()
         assert configs is not None
+    # do normal disambiguation
     if len(sys.argv) > 1:
         file = sys.argv[1]
-        # do normal disambiguation
-        print("type 1", sys.argv[1:])
-        
-        if configs['use_python']:
-            open_prog = open_check(file)
-            print(open_prog)
-        return 
         
         # open history and check if the file is there
         hist_prog = history_check(file)
@@ -349,6 +366,14 @@ def main():
             p = run_program(bytes_prog, file)
             history_set(file, bytes_prog)
             return
+
+        open_prog = ''
+        if configs['use_python']:
+            open_prog = open_check(file)
+            if configs['skip_prompt'] and open_prog:
+                run_program(open_prog, file)
+                return
+
         
         
         
@@ -360,3 +385,5 @@ def main():
 if __name__ == '__main__':
     main()
     input("Press Enter to close")
+    if CLOSE_THREAD is not None:
+        CLOSE_THREAD.join()
