@@ -27,7 +27,7 @@ def bytes_check(file):
         head = fp.read(32)
         for program, hints in BYTE_HINTS.items():
             for offset, code in hints:
-                if head[offset:len(code)] == code:
+                if head[offset:offset+len(code)] == code:
                     return program
     return ''
 

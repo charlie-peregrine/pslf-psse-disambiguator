@@ -2,6 +2,8 @@
 
 import multiprocessing
 
+import checks
+
 PSLF_HINTS = [(0, 'SQLite format'), (8, 'Version')]
 PSSE_HINTS = [(0, 'FuP_pHySPCD%')]
 
@@ -62,16 +64,8 @@ def main():
         # head = head.decode()
         # print(head)
         hex_ = head.hex(' ')
-        str_ = ''
-        for h in hex_.split(' '):
-            try:
-                c = bytes.fromhex(h).decode()
-                if c.isspace() or ord(c) < 32 or ord(c) == 127:
-                    str_ += ' '
-                else:
-                    str_ += c
-            except:
-                str_ += ' '
+        str_ = nice_header(hex_.split(' '))
+        
         best_file = [file for file in ls if '$Recycle.Bin' not in file]
         if best_file:
             best_file = best_file[0]
@@ -88,10 +82,33 @@ def main():
     print("skipped", len(list_))
     print(count2 + len(list_))
 
-    # for head, ls in dict_.items():
+    with open('dump.txt', 'w') as fp:
+        i = 0
+        for head, ls in dict_.items():
+            nice_bytes = nice_header(head.hex(' ').split(' '))
+            # if head != b'\x12\x00\x01\x00\x00\x00\x00\x00Version ':
+            #     continue
+            for file in ls:
+                i += 1
+                # if i > 10:
+                #     break
+                byte_type = checks.bytes_check(file)
+                open_type = checks.open_check(file)
+                out_str = f"{byte_type:<5}{open_type:<5}|{nice_bytes}|{file}\n"
+                fp.write(out_str)
         
-        
-
+def nice_header(bytes_ls):
+    str_ = ''
+    for h in bytes_ls:
+        try:
+            c = bytes.fromhex(h).decode()
+            if c.isspace() or ord(c) < 32 or ord(c) == 127:
+                str_ += ' '
+            else:
+                str_ += c
+        except:
+            str_ += ' '
+    return str_
 
 if __name__ == '__main__':
 
