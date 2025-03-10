@@ -14,9 +14,19 @@ def load_config():
     config_path = consts.EXE_DIR / consts.CONFIG_FILENAME
     try:
         with open(config_path, 'r') as fp:
-            return json.load(fp)
+            dict_ = json.load(fp)
+            if 'psse_version' in dict_:
+                set_psse_version(dict_['psse_version'][0])
+
+            return dict_
     except FileNotFoundError:
         return None
+
+def set_psse_version(major_version):
+    new_suffix = consts.PSSE_EXE_SUFFIX.replace(
+        '35.exe', f"{major_version}.exe"
+    )
+    consts.PSSE_EXE_SUFFIX = new_suffix
 
 def save_history(history_dict):
     history_path = consts.EXE_DIR / consts.HISTORY_FILENAME

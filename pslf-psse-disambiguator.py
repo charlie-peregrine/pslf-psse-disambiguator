@@ -6,6 +6,7 @@ from pathlib import Path
 import importlib.util
 from typing import Callable
 import multiprocessing
+import re
 
 import consts
 import checks
@@ -13,14 +14,40 @@ import files
 
 
 
-def is_valid_pslf_version(path):
-    pass # use 'Pslf.exe --version' and checkoutput to see if version is greater than or equal to 23.1.0
-    return True
+def is_valid_pslf_version(path_to_exe: Path):
+    # use 'Pslf.exe --version' and checkoutput to see if version is greater than or equal to 23.1.0
+    if path_to_exe.exists():
+        p = subprocess.run(f'"{path_to_exe}" --version', stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT)
+        output = p.stdout
+        match_ = re.search(rb"(\d+)\.(\d+).\d+", output, flags=re.IGNORECASE)
+        if match_ is not None:
+            version = tuple((int(match_[x]) for x in range(1, 3)))
+            if version >= (23, 1):
+                return True
+    return False
 
-def is_valid_psse_version(path):
-    pass # read the first line from readme.txt in the toplevel psse_dir to get the version
-        # and see if it's greater than or equal to 35.6.2 
-    return True
+def get_psse_version(path_to_dir: Path):
+    readme_file = path_to_dir / 'readme.txt'
+    if readme_file.exists():
+        try:
+            with open(readme_file, 'r') as fp:
+                output = fp.read()
+                match_ = re.search(r"(\d+)\.(\d+).(\d+)", output, 
+                        flags=re.IGNORECASE)
+                if match_ is not None:
+                    version = tuple((int(match_[x]) for x in range(1, 4)))
+                    return version
+        except OSError:
+            pass
+    return None
+
+def is_valid_psse_version(path_to_dir: Path):
+    # read the first line from readme.txt in the toplevel psse_dir to get the
+    # version and see if it's greater than or equal to 35.6.2
+    
+    version = get_psse_version(path_to_dir)
+    return version is not None and version >= (35, 6, 2)
 
 def keep_asking(
     prompt: str = "(y/n) ",
@@ -71,14 +98,22 @@ def setup_():
     keep_asking("Change these values? (y/n) ", yes_print="edit here (WIP)",
                 no_print="Keeping")
     
-    pslf_exe_path = pslf_dir_path / consts.PSLF_EXE_SUFFIX
-    psse_exe_path = psse_dir_path / consts.PSSE_EXE_SUFFIX
+    
     
     # @TODO check that the exe files exist
-    # while not pslf_exe_path.exists():
-    #     pass # ask for new directory
-    # while not psse_exe_path.exists():
-    #     pass # ask for new directory
+    pslf_exe_path = pslf_dir_path / consts.PSLF_EXE_SUFFIX
+    if not pslf_exe_path.exists():
+        print("pslf.exe not found")
+        pass # ask for new directory
+
+    psse_version = get_psse_version(psse_dir_path)
+    if psse_version is not None:
+        configs['psse_version'] = psse_version
+        files.set_psse_version(psse_version[0])
+    psse_exe_path = psse_dir_path / consts.PSSE_EXE_SUFFIX
+    if not psse_exe_path.exists():
+        print(f"{psse_exe_path.name} not found")
+        pass # ask for new directory
     
     configs['pslf'] = str(pslf_dir_path)
     configs['psse'] = str(psse_dir_path)
@@ -96,18 +131,22 @@ def setup_():
     sys.path.append(str(psse_py_path.parent))
     
     use_python_libraries = True
-    if not is_valid_pslf_version(psse_exe_path):
+    if sys.version_info[:2] != (3, 11):
         use_python_libraries = False
-        print("invalid pslf version for python libraries")
-    elif importlib.util.find_spec('PSLF_PYTHON') is None:
-        use_python_libraries = False
-        print("Can't find pslf python")
-    if not is_valid_psse_version(psse_dir_path):
-        use_python_libraries = False
-        print("invalid psse version for python libraries")
-    elif importlib.util.find_spec('psse35') is None:
-        use_python_libraries = False
-        print("Can't find psse python")
+        print("invalid python version to use python libraries")
+    else:
+        if not is_valid_pslf_version(pslf_exe_path):
+            use_python_libraries = False
+            print("invalid pslf version for python libraries")
+        elif importlib.util.find_spec('PSLF_PYTHON') is None:
+            use_python_libraries = False
+            print("Can't find pslf python")
+        if not is_valid_psse_version(psse_dir_path):
+            use_python_libraries = False
+            print("invalid psse version for python libraries")
+        elif importlib.util.find_spec('psse35') is None:
+            use_python_libraries = False
+            print("Can't find psse python")
     configs['use_python'] = use_python_libraries
     
     
@@ -182,6 +221,9 @@ def main():
         file = sys.argv[1]
         print(sys.argv)
         
+        # maybe add something here where if the user is holding down control
+        # we disable skip prompt.
+        
         # open history and check if the file is there
         hist_prog = checks.history_check(file)
         print(f"history_check result: '{hist_prog}'")
@@ -189,6 +231,7 @@ def main():
             run_program(hist_prog, file)
             return
         
+        # check the header bytes
         bytes_prog = checks.bytes_check(file)
         print(f"bytes_check result: '{bytes_prog}'")
         if configs['skip_prompt'] and bytes_prog:
@@ -196,6 +239,8 @@ def main():
             files.history_set(file, bytes_prog)
             return
 
+        # if this is the right version to use the python libraries then check
+        # if the program can be run with those.
         open_prog = ''
         if configs['use_python']:
             open_prog = checks.open_check(file)
