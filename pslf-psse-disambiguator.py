@@ -3,185 +3,13 @@
 import subprocess
 import sys
 from pathlib import Path
-import importlib.util
-from typing import Callable
 import multiprocessing
-import re
 
 import consts
 import checks
 import files
+from SetupWindow import SetupWindow
 
-
-
-def is_valid_pslf_version(path_to_exe: Path):
-    # use 'Pslf.exe --version' and checkoutput to see if version is greater than or equal to 23.1.0
-    if path_to_exe.exists():
-        p = subprocess.run(f'"{path_to_exe}" --version', stdout=subprocess.PIPE, 
-                stderr=subprocess.STDOUT)
-        output = p.stdout
-        match_ = re.search(rb"(\d+)\.(\d+).\d+", output, flags=re.IGNORECASE)
-        if match_ is not None:
-            version = tuple((int(match_[x]) for x in range(1, 3)))
-            if version >= (23, 1):
-                return True
-    return False
-
-def get_psse_version(path_to_dir: Path):
-    readme_file = path_to_dir / 'readme.txt'
-    if readme_file.exists():
-        try:
-            with open(readme_file, 'r') as fp:
-                output = fp.read()
-                match_ = re.search(r"(\d+)\.(\d+).(\d+)", output, 
-                        flags=re.IGNORECASE)
-                if match_ is not None:
-                    version = tuple((int(match_[x]) for x in range(1, 4)))
-                    return version
-        except OSError:
-            pass
-    return None
-
-def is_valid_psse_version(path_to_dir: Path):
-    # read the first line from readme.txt in the toplevel psse_dir to get the
-    # version and see if it's greater than or equal to 35.6.2
-    
-    version = get_psse_version(path_to_dir)
-    return version is not None and version >= (35, 6, 2)
-
-def keep_asking(
-    prompt: str = "(y/n) ",
-    yes_test: str | Callable[[str], bool] = 'y',
-    no_test: str | Callable[[str], bool] = 'n',
-    yes_print: str | None = None,
-    no_print: str | None = None,
-    reprompt: str = "Enter y or n for yes or no"
-):
-    if isinstance(yes_test, str):
-        yes_test_ = lambda x: x == yes_test
-    else:
-        yes_test_ = yes_test
-    if isinstance(no_test, str):
-        no_test_ = lambda x: x == no_test
-    else:
-        no_test_ = no_test
-    while True:
-        inp = input(prompt)
-        if yes_test_(inp):
-            if yes_print is not None:
-                print(yes_print)
-            return True
-        elif no_test_(inp):
-            if no_print is not None:
-                print(no_print)
-            return False
-        else:
-            print(reprompt)
-
-def setup_():
-    configs = files.load_config()
-    if configs is None:
-        pslf_dir_path = consts.DEFAULT_PSLF_DIR_PATH
-        psse_dir_path = consts.DEFAULT_PSSE_DIR_PATH
-        configs = {}
-    else:
-        pslf_dir_path = Path(configs['pslf'])
-        psse_dir_path = Path(configs['psse'])
-        
-
-    print("Using the following directories to find pslf and psse executables.")
-    print("If you have multiple versions of either program or installed them")
-    print("somewhere different than the default location, you may need to change")
-    print("these.")
-    print("PSLF:", pslf_dir_path)
-    print("PSSE:", psse_dir_path)
-    keep_asking("Change these values? (y/n) ", yes_print="edit here (WIP)",
-                no_print="Keeping")
-    
-    
-    
-    # @TODO check that the exe files exist
-    pslf_exe_path = pslf_dir_path / consts.PSLF_EXE_SUFFIX
-    if not pslf_exe_path.exists():
-        print("pslf.exe not found")
-        pass # ask for new directory
-
-    psse_version = get_psse_version(psse_dir_path)
-    if psse_version is not None:
-        configs['psse_version'] = psse_version
-        files.set_psse_version(psse_version[0])
-    psse_exe_path = psse_dir_path / consts.PSSE_EXE_SUFFIX
-    if not psse_exe_path.exists():
-        print(f"{psse_exe_path.name} not found")
-        pass # ask for new directory
-    
-    configs['pslf'] = str(pslf_dir_path)
-    configs['psse'] = str(psse_dir_path)
-    
-    
-    print("Skip the 'Pick a program' window when opening a sav file that has")
-    print("been opened before? If you're not sure, then choose yes.")
-    configs['skip_prompt'] = keep_asking(yes_print="always", no_print="only sometimes")
-
-    pslf_py_path = pslf_dir_path / consts.PSLF_PY_SUFFIX
-    psse_py_path = psse_dir_path / consts.PSSE_PY_SUFFIX
-    
-    # add paths to import search paths
-    sys.path.append(str(pslf_py_path.parent))
-    sys.path.append(str(psse_py_path.parent))
-    
-    use_python_libraries = True
-    if sys.version_info[:2] != (3, 11):
-        use_python_libraries = False
-        print("invalid python version to use python libraries")
-    else:
-        if not is_valid_pslf_version(pslf_exe_path):
-            use_python_libraries = False
-            print("invalid pslf version for python libraries")
-        elif importlib.util.find_spec('PSLF_PYTHON') is None:
-            use_python_libraries = False
-            print("Can't find pslf python")
-        if not is_valid_psse_version(psse_dir_path):
-            use_python_libraries = False
-            print("invalid psse version for python libraries")
-        elif importlib.util.find_spec('psse35') is None:
-            use_python_libraries = False
-            print("Can't find psse python")
-    configs['use_python'] = use_python_libraries
-    
-    
-    files.save_config(configs)
-    if not files.load_history():
-        files.save_history({})
-    
-    
-    # set fta here
-    if consts.IS_BUNDLED:
-        pass 
-        set_file_type_association(sys.executable, "ppd.ico", ".sav")
-    else:
-        print("> skipping set fta for unbundled files")
-
-def set_file_type_association(exe_path, icon_name, extension):
-    exe_path = Path(exe_path).resolve()
-    sfta_path = consts.PPD_DIR / "PS-SFTA\\SFTA.ps1"
-    ico_path = consts.PPD_DIR / icon_name
-
-    ps_command = f"""Register-FTA '{exe_path}' {extension} -Icon '{ico_path}'"""
-    cmd_command = f"""powershell -ExecutionPolicy Bypass -command "& {{ . '{sfta_path}'; {ps_command} }}" """
-
-    # print("Power shell SFTA string:")
-    # print(cmd_command)
-
-    p = subprocess.run(
-        cmd_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-    )
-    print(p.stdout)
-    return p.returncode
-    # if p.returncode:
-    #     print("File type association failed!")
-    # else:
-    #     print("File type association succeeded!")
 
 def run_program(program, file):
     command_format = 'cd "{work_dir}" & "{exe}" "{file}"'
@@ -213,7 +41,8 @@ def main():
 
     # show setup window
     if configs is None or len(sys.argv) < 2:
-        setup_()
+        setupwindow = SetupWindow()
+        setupwindow.mainloop()
         configs = files.load_config()
         assert configs is not None
     # do normal disambiguation
