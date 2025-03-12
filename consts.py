@@ -6,17 +6,17 @@ from pathlib import Path
 PPD_DIR = Path(__file__).resolve().parent
 
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-    print('> running in a PyInstaller bundle')
+    # print('> running in a PyInstaller bundle')
     IS_BUNDLED = True
     EXE_DIR = Path(sys.executable).resolve().parent
 else:
-    print('> running in a normal Python process')
+    # print('> running in a normal Python process')
     IS_BUNDLED = False
     EXE_DIR = PPD_DIR
 
 # sys.executable is the location of the exe
-print("> PPD_DIR:", PPD_DIR)
-print("> EXE_DIR:", EXE_DIR)
+# print("> PPD_DIR:", PPD_DIR)
+# print("> EXE_DIR:", EXE_DIR)
 
 DEFAULT_PSLF_DIR_PATH = Path(r"C:\Program Files\GE PSLF")
 DEFAULT_PSSE_DIR_PATH = Path(r"C:\Program Files\PTI\PSSE35\35.6")
@@ -33,3 +33,4 @@ HISTORY_FILENAME = ".history.json"
 
 CLOSE_THREAD = None
 
+BG_COLOR = "#EFEFFA" #"#FCFFF3"

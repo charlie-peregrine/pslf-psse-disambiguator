@@ -10,8 +10,7 @@ from pathlib import Path
 from PIL import Image, ImageTk
 from PIL.Image import Resampling
 from itertools import chain
-import threading
-import queue
+import multiprocessing
 
 
 import tkinter as tk
@@ -40,7 +39,7 @@ class SetupWindow(tk.Tk):
             self.configs['pslf'] = consts.DEFAULT_PSLF_DIR_PATH
             self.configs['psse'] = consts.DEFAULT_PSSE_DIR_PATH
             self.configs['psse_version'] = (-1, -1, -1)
-            self.configs['skip_prompt'] = False
+            self.configs['skip_prompt'] = True
             self.configs['use_python'] = False
         else:
             self.configs = configs
@@ -55,17 +54,16 @@ class SetupWindow(tk.Tk):
         self.checked_py_libraries = False
         
         # after call code and queue
-        self.queue = queue.Queue()
+        self.queue = multiprocessing.Queue()
         self.start_after_code = ''
         self.after_code = ''
-        self.threads = []
-        self.thread_listener()
+        self.procs = []
+        self.process_listener()
         
         
         style = ttk.Style()
-        color = "#EFEFFA" #"#FCFFF3"
-        self.config(bg=color)
-        style.configure(".", background=color)
+        self.config(bg=consts.BG_COLOR)
+        style.configure(".", background=consts.BG_COLOR)
         style.configure("BadEntry.TEntry", fieldbackground='lightred')
         style.configure("GoodEntry.TEntry", fieldbackground='lightgreen')
         
@@ -167,7 +165,7 @@ class SetupWindow(tk.Tk):
             for widget in frame.winfo_children():
                 widget.grid_configure(padx=4, pady=3)
 
-    def thread_listener(self):
+    def process_listener(self):
         if not self.queue.empty():
             good_str = (
                 "The program will be able to use the PSLF and PSSE python "
@@ -193,21 +191,21 @@ class SetupWindow(tk.Tk):
                         good = True
                         str_ = "INFO: " + good_str
                     else:
-                        for t in self.threads:
-                            t.join()
+                        for p in self.procs:
+                            p.join()
                         return
             self.configs['use_python'] = good
             self.checked_py_libraries = True
             self.update_ok_button()
             self.py_library_label.config(text=str_)
-        remove_threads = []
-        for t in self.threads:
-            if not t.is_alive():
-                t.join()
-                remove_threads.append(t)
-        for t in remove_threads:
-            self.threads.remove(t)
-        self.after(200, self.thread_listener)
+        remove_procs = []
+        for p in self.procs:
+            if not p.is_alive():
+                p.join()
+                remove_procs.append(p)
+        for p in remove_procs:
+            self.procs.remove(p)
+        self.after(200, self.process_listener)
             
     
     def pslf_validate(self, text):
@@ -285,46 +283,17 @@ class SetupWindow(tk.Tk):
         if self.start_after_code:
             self.after_cancel(self.start_after_code)
             self.start_after_code = ''
-        self.start_after_code = self.after(600, self.start_check_py_lib)
+        self.start_after_code = self.after(300, self.start_check_py_lib)
     
     def start_check_py_lib(self):
-        t = threading.Thread(target=self.check_py_library_usability, daemon=True)
-        self.threads.append(t)
-        t.start()
         self.start_after_code = ''
-    
-    def check_py_library_usability(self):
-        pslf_py_path = self.configs['pslf'] / consts.PSLF_PY_SUFFIX
-        psse_py_path = self.configs['psse'] / consts.PSSE_PY_SUFFIX
-        
-        # add paths to import search paths
-        sys.path.append(str(pslf_py_path.parent))
-        sys.path.append(str(psse_py_path.parent))
-        
-        messages = []
-        vers = sys.version_info[:2]
-        if vers != (3, 11):
-            messages.append(
-                f"Invalid python version ({vers[0]}.{vers[1]}) to use python libraries.")
-            print(messages[-1])
-        else:
-            if not is_valid_pslf_version(self.configs['pslf'] / consts.PSLF_EXE_SUFFIX):
-                messages.append("Invalid PSLF version for python libraries. Need PSLF 23.1.0 or greater.")
-                print(messages[-1])
-            elif importlib.util.find_spec('PSLF_PYTHON') is None:
-                messages.append("Can't find PSLF python libraries in directory.")
-                print(messages[-1])
-            if not is_valid_psse_version(self.configs['psse']):
-                messages.append("Invalid PSSE version for python libraries. Need PSSE 35.6.2 or greater.")
-                print(messages[-1])
-            elif importlib.util.find_spec('psse35') is None:
-                messages.append("Can't find PSSE python libraries in directory.")
-                print(messages[-1])
-        
-        sys.path.remove(str(pslf_py_path.parent))
-        sys.path.remove(str(psse_py_path.parent))
-        
-        self.queue.put(messages or True)
+        p = multiprocessing.Process(
+            target=check_py_library_usability,
+            args=(self.configs['pslf'], self.configs['psse'], self.queue),
+            daemon=True
+        )
+        self.procs.append(p)
+        p.start()
     
     def update_ok_button(self):
         self.ok_button
@@ -340,8 +309,8 @@ class SetupWindow(tk.Tk):
         self.destroy()
         # save configuration
         self.configs['skip_prompt'] = not self.show_prompt_var.get()
-        import json
-        print(json.dumps(self.configs, indent=2, default=files.path_default))
+        # import json
+        # print(json.dumps(self.configs, indent=2, default=files.path_default))
         files.save_config(self.configs)
         if not files.load_history():
             files.save_history({})
@@ -360,6 +329,44 @@ class SetupWindow(tk.Tk):
     def cancel_command(self):
         self.queue.put(False)
         self.destroy()
+
+def check_py_library_usability(
+    pslf_dir: Path | str, psse_dir: Path | str, q: multiprocessing.Queue
+):
+    pslf_dir = Path(pslf_dir)
+    psse_dir = Path(psse_dir)
+    pslf_py_path = pslf_dir / consts.PSLF_PY_SUFFIX
+    psse_py_path = psse_dir / consts.PSSE_PY_SUFFIX
+    
+    # add paths to import search paths
+    sys.path.append(str(pslf_py_path.parent))
+    sys.path.append(str(psse_py_path.parent))
+    
+    messages = []
+    vers = sys.version_info[:2]
+    if vers != (3, 11):
+        messages.append(
+            f"Invalid python version ({vers[0]}.{vers[1]}) to use python libraries.")
+        print(messages[-1])
+    else:
+        if not is_valid_pslf_version(pslf_dir / consts.PSLF_EXE_SUFFIX):
+            messages.append("Invalid PSLF version for python libraries. Need PSLF 23.1.0 or greater.")
+            print(messages[-1])
+        elif importlib.util.find_spec('PSLF_PYTHON') is None:
+            messages.append("Can't find PSLF python libraries in directory.")
+            print(messages[-1])
+        if not is_valid_psse_version(psse_dir):
+            messages.append("Invalid PSSE version for python libraries. Need PSSE 35.6.2 or greater.")
+            print(messages[-1])
+        elif importlib.util.find_spec('psse35') is None:
+            messages.append("Can't find PSSE python libraries in directory.")
+            print(messages[-1])
+    
+    # below not necessary in its own process
+    # sys.path.remove(str(pslf_py_path.parent))
+    # sys.path.remove(str(psse_py_path.parent))
+    
+    q.put(messages or True)
 
 
 
@@ -387,7 +394,8 @@ def get_psse_version(path_to_dir: Path):
                 if match_ is not None:
                     version = tuple((int(match_[x]) for x in range(1, 4)))
                     return version
-        except OSError:
+        except OSError as e:
+            # print('OSError', e)
             pass
     return None
 

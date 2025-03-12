@@ -5,7 +5,16 @@ a = Analysis(
     ['pslf-psse-disambiguator.py'],
     pathex=[],
     binaries=[],
-    datas=[('.\\PS-SFTA\\', './PS-SFTA/'), ('.\\ppd.ico', '.'), ('.\\psse.ico', '.'), ('.\\pslf.ico', '.')],
+    datas=[
+        ('.\\PS-SFTA\\', './PS-SFTA/'),
+        ('.\\ppd.ico', '.'),
+        ('.\\psse.ico', '.'),
+        ('.\\pslf.ico', '.'),
+        ('.\\ppd.png', '.'),
+        ('.\\psse.png', '.'),
+        ('.\\pslf.png', '.'),
+        
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
