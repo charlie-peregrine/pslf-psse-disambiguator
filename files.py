@@ -1,14 +1,21 @@
 # files.py, Charlie Jordan, 3/7/2025
 
 import json
-
+from pathlib import PurePath
 import consts
 
 def save_config(config_dict):
     config_path = consts.EXE_DIR / consts.CONFIG_FILENAME
     # @TODO do some checks here for contents?
     with open(config_path, 'w') as fp:
-        json.dump(config_dict, fp, indent=2)
+        json.dump(config_dict, fp, indent=2, default=path_default)
+
+def path_default(obj):
+    if isinstance(obj, PurePath):
+        return str(obj)
+    raise TypeError(f'Cannot serialize object of {type(obj)}')
+
+
 
 def load_config():
     config_path = consts.EXE_DIR / consts.CONFIG_FILENAME
@@ -19,7 +26,7 @@ def load_config():
                 set_psse_version(dict_['psse_version'][0])
 
             return dict_
-    except FileNotFoundError:
+    except (FileNotFoundError, json.decoder.JSONDecodeError):
         return None
 
 def set_psse_version(major_version):

@@ -9,89 +9,65 @@ from typing import Callable
 from pathlib import Path
 from PIL import Image, ImageTk
 from PIL.Image import Resampling
+from itertools import chain
+import threading
+import queue
 
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter import filedialog as fd
 
 import consts
 import files
-
 
 class SetupWindow(tk.Tk):
     def __init__(self):
         super().__init__()
         
         self.title("PSLF/PSSE Disambiguator Setup")
-        # self.wm_protocol
+        self.wm_protocol("WM_DELETE_WINDW", self.cancel_command)
         
         self.iconphoto(True, tk.PhotoImage(file="./ppd.png"))
+        # self.minsize(450, 200)
+        # self.geometry("400x200")
         # self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
         
-        ### labelframe for setting directories
-        self.exe_frame = ttk.Labelframe(self, text="Step 1: Program Directories")
-        self.exe_frame.grid(row=0, column=0, sticky='ew')
-        self.exe_frame.columnconfigure(1, weight=1)
-
-        icon_size = (16, 16)
-        # pslf line with icon, entry, select button
-        image = Image.open("./pslf.png").resize(icon_size, Resampling.BICUBIC)
-        self.pslf_icon = ImageTk.PhotoImage(image)
-        self.pslf_icon_label = ttk.Label(self.exe_frame, compound='left', text='PSLF:', image=self.pslf_icon)
-        self.pslf_icon_label.grid(row=1, column=0)
-        
-        # def pslf_validate(text):
-            
-        
-        self.pslf_entry = ttk.Entry(self.exe_frame, validate='all', width=45)
-        self.pslf_entry.insert(0, '')
-        self.pslf_entry.grid(row=1, column=1, sticky='ew')
-        self.pslf_select_button = ttk.Button(self.exe_frame, text="Select")
-        self.pslf_select_button.grid(row=1, column=2)
-        
-        # psse line with icon, entry, select button
-        image = Image.open("./psse.png").resize(icon_size, Resampling.BICUBIC)
-        self.psse_icon = ImageTk.PhotoImage(image)
-        self.psse_icon_label = ttk.Label(self.exe_frame, compound='left', text='PSSE:', image=self.psse_icon)
-        self.psse_icon_label.grid(row=2, column=0)
-
-        self.psse_entry = ttk.Entry(self.exe_frame, validate='all', width=45)
-        self.psse_entry.insert(0, '')
-        self.psse_entry.grid(row=2, column=1, sticky='ew')
-        self.psse_select_button = ttk.Button(self.exe_frame, text="Select")
-        self.psse_select_button.grid(row=2, column=2)
-
-        ### Labelframe for misc options
-        self.misc_frame = ttk.LabelFrame(self, text="Step 2: Preferences and Hints")
-        self.misc_frame.grid(row=1, column=0, sticky='ew')
-        self.misc_frame.columnconfigure(1, weight=1)
-
-        # skip prompt checkbox
-        self.skip_prompt_checkbox = ttk.Checkbutton(self.misc_frame)
-        self.skip_prompt_checkbox.grid(row=0, column=0)
-        self.skip_prompt_label = ttk.Label(self.misc_frame, wraplength=450,
-                text="Show a prompt to pick which program to run for a sav file regardless of the automatically detected type. If unsure, it is recommended to leave this box unchecked.",
-                justify='left')
-        self.skip_prompt_label.grid(row=0, column=1)
-        # hint about hold control to show window regardless of skip prompt
-        self.hint_label = ttk.Label(self.misc_frame, wraplength=400,
-                text="HINT: If you left the box above unchecked you can still access the prompt by holding Control while opening a sav file.",
-                justify='left')
-        self.hint_label.grid(row=1, column=0, columnspan=2)
-        # Status for using python libraries
-        # @TODO add textvariable and variable depending on results
-        self.py_library_checkbox = ttk.Checkbutton(self.misc_frame)
-        self.py_library_checkbox.grid(row=2, column=0)
-        self.py_library_label = ttk.Label(self.misc_frame, text="Python Library Status", justify='left')
-        self.py_library_label.grid(row=2, column=1)
-        
-        ### History Labelframe
-        # self.history_frame = ttk.Labelframe(self, text="Step 3: History")
-        # self.history_frame.grid(row=0, column=1, rowspan=2)
+        configs = files.load_config()
+        if configs is None:
+            self.configs = {}
+            self.configs['pslf'] = consts.DEFAULT_PSLF_DIR_PATH
+            self.configs['psse'] = consts.DEFAULT_PSSE_DIR_PATH
+            self.configs['psse_version'] = (-1, -1, -1)
+            self.configs['skip_prompt'] = False
+            self.configs['use_python'] = False
+        else:
+            self.configs = configs
+            self.configs['pslf'] = Path(self.configs['pslf'])
+            self.configs['psse'] = Path(self.configs['psse'])
+        self.done = False
         
         
-        # clear history, remove from history, edit history? 
+        ### booleans for making sure that everything that needs to happen happens
+        self.has_valid_pslf = False
+        self.has_valid_psse = False
+        self.checked_py_libraries = False
+        
+        # after call code and queue
+        self.queue = queue.Queue()
+        self.start_after_code = ''
+        self.after_code = ''
+        self.threads = []
+        self.thread_listener()
+        
+        
+        style = ttk.Style()
+        color = "#EFEFFA" #"#FCFFF3"
+        self.config(bg=color)
+        style.configure(".", background=color)
+        style.configure("BadEntry.TEntry", fieldbackground='lightred')
+        style.configure("GoodEntry.TEntry", fieldbackground='lightgreen')
         
         # buttons to save and close
         ### Button Frame
@@ -103,26 +79,288 @@ class SetupWindow(tk.Tk):
         sep = ttk.Separator(self.button_frame, orient='horizontal')
         sep.grid(row=0, column=0, columnspan=2, sticky='ew')
         
-        self.ok_button = ttk.Button(self.button_frame, text="OK")
+        self.ok_button = ttk.Button(self.button_frame, text="OK",
+                command=self.ok_command)
         self.ok_button.grid(row=2, column=0, sticky='ew')
-        self.cancel_button = ttk.Button(self.button_frame, text="Cancel")
+        self.cancel_button = ttk.Button(self.button_frame, text="Cancel",
+                command=self.cancel_command)
         self.cancel_button.grid(row=2, column=1, sticky='ew')
+        
+        ### labelframe for setting directories
+        self.exe_frame = ttk.LabelFrame(self, text="Step 1: Program Directories")
+        self.exe_frame.grid(row=0, column=0, sticky='ew', padx=3, pady=3)
+        self.exe_frame.columnconfigure(1, weight=1)
 
+        self.exe_label = ttk.Label(self.exe_frame, wraplength=450, justify='left',
+                text="Use the entries below to verify that the program has found the correct locations and versions of PSLF and PSSE. ")
+        self.exe_label.grid(row=0, column=0, columnspan=3)
+
+        icon_size = (16, 16)
+        # pslf line with icon, entry, select button
+        image = Image.open("./pslf.png").resize(icon_size, Resampling.BICUBIC)
+        self.pslf_icon = ImageTk.PhotoImage(image)
+        self.pslf_icon_label = ttk.Label(self.exe_frame, compound='left', text='PSLF:', image=self.pslf_icon)
+        self.pslf_icon_label.grid(row=1, column=0)
+        
+        pslf_v_cmd = (self.register(self.pslf_validate), '%P')
+        self.pslf_entry = tk.Entry(self.exe_frame, validate='key',
+                validatecommand=pslf_v_cmd, width=45)
+        self.pslf_entry.insert(0, str(self.configs['pslf'] / consts.PSLF_EXE_SUFFIX))
+        self.pslf_entry.grid(row=1, column=1, sticky='ew')
+        self.pslf_select_button = ttk.Button(self.exe_frame, text="Select",
+                command=self.pslf_select_button_callback)
+        self.pslf_select_button.grid(row=1, column=2)
+        
+        # psse line with icon, entry, select button
+        image = Image.open("./psse.png").resize(icon_size, Resampling.BICUBIC)
+        self.psse_icon = ImageTk.PhotoImage(image)
+        self.psse_icon_label = ttk.Label(self.exe_frame, compound='left', text='PSSE:', image=self.psse_icon)
+        self.psse_icon_label.grid(row=2, column=0)
+
+        psse_v_cmd = (self.register(self.psse_validate), '%P')
+        self.psse_entry = tk.Entry(self.exe_frame, validate='key',
+                validatecommand=psse_v_cmd, width=45)
+        self.psse_entry.insert(0, str(self.configs['psse'] / consts.PSSE_EXE_SUFFIX))
+        self.psse_entry.grid(row=2, column=1, sticky='ew')
+        self.psse_select_button = ttk.Button(self.exe_frame, text="Select",
+                command=self.psse_select_button_callback)
+        self.psse_select_button.grid(row=2, column=2)
+
+        ### Labelframe for misc options
+        self.misc_frame = ttk.LabelFrame(self, text="Step 2: Preferences and Hints")
+        self.misc_frame.grid(row=1, column=0, sticky='ew', padx=3, pady=3)
+        self.misc_frame.columnconfigure(1, weight=1)
+
+        # skip prompt checkbox
+        self.show_prompt_var = tk.BooleanVar(value=False)
+        if 'skip_prompt' in self.configs:
+            self.show_prompt_var.set(not self.configs['skip_prompt'])
+        self.show_prompt_checkbox = ttk.Checkbutton(self.misc_frame, variable=self.show_prompt_var)
+        self.show_prompt_checkbox.grid(row=0, column=0)
+        self.show_prompt_label = ttk.Label(self.misc_frame, wraplength=400,
+                text="Show a prompt to pick which program to run for a sav file regardless of the automatically detected type. If unsure, it is recommended to leave this box unchecked.",
+                justify='left')
+        self.show_prompt_label.grid(row=0, column=1, sticky='w')
+        
+        # hint about hold control to show window regardless of skip prompt
+        self.hint_label = ttk.Label(self.misc_frame, wraplength=450,
+                text="HINT: If you left the box above unchecked you can still access the prompt by holding Control while opening a sav file.",
+                justify='left')
+        self.hint_label.grid(row=1, column=0, columnspan=2, sticky='w')
+        
+        
+        # Status for using python libraries
+        # @TODO add variable depending on results
+        # @TODO convert check py library func to an after listener and threads
+        sep = ttk.Separator(self.misc_frame, orient='horizontal')
+        sep.grid(row=2, column=0, columnspan=2, sticky='ew')
+        self.py_library_label = ttk.Label(self.misc_frame, wraplength=450,
+                text="Checking Python Library Status...", justify='left')
+        self.py_library_label.grid(row=3, column=0, columnspan=2, sticky='w')
+        
+        ### History Labelframe
+        # self.history_frame = ttk.LabelFrame(self, text="Step 3: History")
+        # self.history_frame.grid(row=0, column=1, rowspan=2, padx=3, pady=3)
+        # clear history, remove from history, edit history? 
         
         for frame in (self.exe_frame, self.misc_frame, self.button_frame):
             for widget in frame.winfo_children():
                 widget.grid_configure(padx=4, pady=3)
 
-
-
-# class WrapLabel(ttk.Label):
-#     def __init__(self, parent, *args, **kwargs):
-#         super().__init__(parent, *args, **kwargs)
-        
-#         self.bind("<Configure>", self.change_wrap)
+    def thread_listener(self):
+        if not self.queue.empty():
+            good_str = (
+                "The program will be able to use the PSLF and PSSE python "
+                "APIs to disambiguate sav files in addition to the other methods."
+            )
+            bad_str = (
+                "The program won't be able to use the PSLF and PSSE python "
+                "APIs to disambiguate sav files. If you have a higher version "
+                "installed then select that, otherwise don't worry, the "
+                "python APIs are not strictly necessary. Reason(s): "
+            )
+            str_ = good_str
+            good = False
+            while not self.queue.empty():
+                obj = self.queue.get()
+                if isinstance(obj, list):
+                    str_ = "INFO: " + bad_str + ' '.join(obj)
+                    good = False
+                    self.update_ok_button()
+                else:
+                    # obj is a boolean
+                    if obj:
+                        good = True
+                        str_ = "INFO: " + good_str
+                    else:
+                        for t in self.threads:
+                            t.join()
+                        return
+            self.configs['use_python'] = good
+            self.checked_py_libraries = True
+            self.update_ok_button()
+            self.py_library_label.config(text=str_)
+        remove_threads = []
+        for t in self.threads:
+            if not t.is_alive():
+                t.join()
+                remove_threads.append(t)
+        for t in remove_threads:
+            self.threads.remove(t)
+        self.after(200, self.thread_listener)
+            
     
-#     def change_wrap(self, e):
-#         print(self.grid_bbox())
+    def pslf_validate(self, text):
+        # check that the exe files exist
+        # print(text)
+        self.has_valid_pslf = False
+        self.update_ok_button()
+        dir_path = Path(text)
+        if dir_path.exists():
+            for parent in chain((dir_path,), dir_path.parents):
+                pslf_exe_path = parent / consts.PSLF_EXE_SUFFIX
+                if pslf_exe_path.exists():
+                    self.configs['pslf'] = parent
+                    self.start_after()
+                    self.pslf_entry.config(background='lightgreen')
+                    self.has_valid_pslf = True
+                    self.update_ok_button()
+                    return True
+        
+        self.pslf_entry.config(background='#FF6A6A')
+        return True
+    
+    def pslf_select_button_callback(self):
+        path = self.configs['pslf'] / consts.PSLF_EXE_SUFFIX
+        file_name = fd.askopenfilename(
+            initialdir=self.configs['pslf'],
+            initialfile=path.name,
+            filetypes=[("All Files", "*.*"), ("Executables", "*.exe")],
+            defaultextension=".exe",
+            title="Select Pslf.exe in the GE PSLF installation directory."
+        )
+        if file_name is not None:
+            self.pslf_entry.delete(0, 'end')
+            self.pslf_entry.insert(0, str(Path(file_name)))
+
+    def psse_select_button_callback(self):
+        path = self.configs['psse'] / consts.PSSE_EXE_SUFFIX
+        file_name = fd.askopenfilename(
+            initialdir=path.parent,
+            initialfile=path.name,
+            filetypes=[("All Files", "*.*"), ("Executables", "*.exe")],
+            defaultextension=".exe",
+            title="Select psse##.exe in the PSSE installation directory."
+        )
+        if file_name is not None:
+            self.psse_entry.delete(0, 'end')
+            self.psse_entry.insert(0, str(Path(file_name)))
+
+    def psse_validate(self, text):
+        # check that the exe files exist
+        # print(text)
+        
+        self.has_valid_psse = False
+        self.update_ok_button()
+        dir_path = Path(text)
+        if dir_path.exists():
+            for parent in chain((dir_path,), dir_path.parents):
+                version = get_psse_version(parent)
+                if version is not None:
+                    files.set_psse_version(version[0])
+                    self.configs['psse_version'] = version
+                    psse_exe_path = parent / consts.PSSE_EXE_SUFFIX
+                    if psse_exe_path.exists():
+                        self.configs['psse'] = parent
+                        self.start_after()
+                        self.psse_entry.config(background='lightgreen')
+                        self.has_valid_psse = True
+                        self.update_ok_button()
+                        return True
+        
+        self.psse_entry.config(background='#FF6A6A')
+        return True
+    
+    def start_after(self):
+        if self.start_after_code:
+            self.after_cancel(self.start_after_code)
+            self.start_after_code = ''
+        self.start_after_code = self.after(600, self.start_check_py_lib)
+    
+    def start_check_py_lib(self):
+        t = threading.Thread(target=self.check_py_library_usability, daemon=True)
+        self.threads.append(t)
+        t.start()
+        self.start_after_code = ''
+    
+    def check_py_library_usability(self):
+        pslf_py_path = self.configs['pslf'] / consts.PSLF_PY_SUFFIX
+        psse_py_path = self.configs['psse'] / consts.PSSE_PY_SUFFIX
+        
+        # add paths to import search paths
+        sys.path.append(str(pslf_py_path.parent))
+        sys.path.append(str(psse_py_path.parent))
+        
+        messages = []
+        vers = sys.version_info[:2]
+        if vers != (3, 11):
+            messages.append(
+                f"Invalid python version ({vers[0]}.{vers[1]}) to use python libraries.")
+            print(messages[-1])
+        else:
+            if not is_valid_pslf_version(self.configs['pslf'] / consts.PSLF_EXE_SUFFIX):
+                messages.append("Invalid PSLF version for python libraries. Need PSLF 23.1.0 or greater.")
+                print(messages[-1])
+            elif importlib.util.find_spec('PSLF_PYTHON') is None:
+                messages.append("Can't find PSLF python libraries in directory.")
+                print(messages[-1])
+            if not is_valid_psse_version(self.configs['psse']):
+                messages.append("Invalid PSSE version for python libraries. Need PSSE 35.6.2 or greater.")
+                print(messages[-1])
+            elif importlib.util.find_spec('psse35') is None:
+                messages.append("Can't find PSSE python libraries in directory.")
+                print(messages[-1])
+        
+        sys.path.remove(str(pslf_py_path.parent))
+        sys.path.remove(str(psse_py_path.parent))
+        
+        self.queue.put(messages or True)
+    
+    def update_ok_button(self):
+        self.ok_button
+        is_valid = self.has_valid_pslf and \
+                   self.has_valid_psse and \
+                   self.checked_py_libraries
+        if is_valid:
+            self.ok_button.config(state='normal')
+        else:
+            self.ok_button.config(state='disabled')
+    
+    def ok_command(self):
+        self.destroy()
+        # save configuration
+        self.configs['skip_prompt'] = not self.show_prompt_var.get()
+        import json
+        print(json.dumps(self.configs, indent=2, default=files.path_default))
+        files.save_config(self.configs)
+        if not files.load_history():
+            files.save_history({})
+        
+        # set fta here
+        if consts.IS_BUNDLED:
+            set_file_type_association(sys.executable, "ppd.ico", ".sav")
+        else:
+            print("> skipping set fta for unbundled files")
+        
+        # done tag for letting other stuff run properly after this window is closed
+        self.done = True
+        # finish active threads
+        self.queue.put(False)
+
+    def cancel_command(self):
+        self.queue.put(False)
+        self.destroy()
+
 
 
 def is_valid_pslf_version(path_to_exe: Path):

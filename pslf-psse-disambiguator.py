@@ -43,6 +43,8 @@ def main():
     if configs is None or len(sys.argv) < 2:
         setupwindow = SetupWindow()
         setupwindow.mainloop()
+        if not setupwindow.done:
+            return
         configs = files.load_config()
         assert configs is not None
     # do normal disambiguation
