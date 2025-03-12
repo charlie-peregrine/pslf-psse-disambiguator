@@ -11,6 +11,8 @@ import io
 import consts
 import files
 
+CLOSE_THREAD = None
+
 # the codes found at the start of the sav files. offset included
 BYTE_HINTS = {
     'pslf' : (
@@ -101,8 +103,8 @@ def open_check(file):
         p1.join()
         p2.join()
     
-    consts.CLOSE_THREAD = threading.Thread(target=join_processes, args=(p1, p2))
-    consts.CLOSE_THREAD.start()
+    CLOSE_THREAD = threading.Thread(target=join_processes, args=(p1, p2))
+    CLOSE_THREAD.start()
 
     checked = 0
     result = ''
@@ -114,3 +116,7 @@ def open_check(file):
             break
     
     return result
+
+def join_close_thread():
+    if CLOSE_THREAD is not None:
+        CLOSE_THREAD.join()

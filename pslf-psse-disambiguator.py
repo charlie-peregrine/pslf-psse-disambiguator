@@ -32,7 +32,7 @@ def run_program(program, file):
     exe = Path(config[program]) / suffix
     command_text = command_format.format(work_dir=work_dir, exe=exe, file=file)
     print(program + " command_text:", command_text)
-    return subprocess.Popen(command_text, shell=True)
+    return subprocess.Popen(command_text, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
 
 
 def main():
@@ -51,7 +51,8 @@ def main():
     if len(sys.argv) > 1:
         file = sys.argv[1]
         print(sys.argv)
-        
+        import json
+        json.dumps(configs, indent=2, default=files.path_default)
         # maybe add something here where if the user is holding down control
         # we disable skip prompt.
         
@@ -93,5 +94,4 @@ if __name__ == '__main__':
     multiprocessing.freeze_support()
     main()
     # input("Press Enter to close")
-    if consts.CLOSE_THREAD is not None:
-        consts.CLOSE_THREAD.join()
+    checks.join_close_thread()

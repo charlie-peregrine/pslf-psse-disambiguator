@@ -31,6 +31,4 @@ PSSE_PY_SUFFIX = "PSSPY311/psse35.py"
 CONFIG_FILENAME = ".ppd-config.json"
 HISTORY_FILENAME = ".history.json"
 
-CLOSE_THREAD = None
-
 BG_COLOR = "#EFEFFA" #"#FCFFF3"
