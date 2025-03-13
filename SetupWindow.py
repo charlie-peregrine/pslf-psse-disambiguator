@@ -11,6 +11,8 @@ from PIL import Image, ImageTk
 from PIL.Image import Resampling
 from itertools import chain
 import multiprocessing
+import logging
+logger = logging.getLogger(__name__)
 
 
 import tkinter as tk
@@ -27,7 +29,7 @@ class SetupWindow(tk.Tk):
         self.title("PSLF/PSSE Disambiguator Setup")
         self.wm_protocol("WM_DELETE_WINDW", self.cancel_command)
         
-        self.iconphoto(True, tk.PhotoImage(file="./ppd.png"))
+        self.iconphoto(True, tk.PhotoImage(file=consts.PPD_DIR / "ppd.png"))
         # self.minsize(450, 200)
         # self.geometry("400x200")
         # self.rowconfigure(0, weight=1)
@@ -95,7 +97,7 @@ class SetupWindow(tk.Tk):
 
         icon_size = (16, 16)
         # pslf line with icon, entry, select button
-        image = Image.open("./pslf.png").resize(icon_size, Resampling.BICUBIC)
+        image = Image.open(consts.PPD_DIR / "pslf.png").resize(icon_size, Resampling.BICUBIC)
         self.pslf_icon = ImageTk.PhotoImage(image)
         self.pslf_icon_label = ttk.Label(self.exe_frame, compound='left', text='PSLF:', image=self.pslf_icon)
         self.pslf_icon_label.grid(row=1, column=0)
@@ -110,7 +112,7 @@ class SetupWindow(tk.Tk):
         self.pslf_select_button.grid(row=1, column=2)
         
         # psse line with icon, entry, select button
-        image = Image.open("./psse.png").resize(icon_size, Resampling.BICUBIC)
+        image = Image.open(consts.PPD_DIR / "psse.png").resize(icon_size, Resampling.BICUBIC)
         self.psse_icon = ImageTk.PhotoImage(image)
         self.psse_icon_label = ttk.Label(self.exe_frame, compound='left', text='PSSE:', image=self.psse_icon)
         self.psse_icon_label.grid(row=2, column=0)
@@ -197,6 +199,7 @@ class SetupWindow(tk.Tk):
             self.configs['use_python'] = good
             self.checked_py_libraries = True
             self.update_ok_button()
+            logger.info("Setting py_library_label to %s", str_)
             self.py_library_label.config(text=str_)
         remove_procs = []
         for p in self.procs:
@@ -347,20 +350,20 @@ def check_py_library_usability(
     if vers != (3, 11):
         messages.append(
             f"Invalid python version ({vers[0]}.{vers[1]}) to use python libraries.")
-        print(messages[-1])
+        logger.info(messages[-1])
     else:
         if not is_valid_pslf_version(pslf_dir / consts.PSLF_EXE_SUFFIX):
             messages.append("Invalid PSLF version for python libraries. Need PSLF 23.1.0 or greater.")
-            print(messages[-1])
+            logger.info(messages[-1])
         elif importlib.util.find_spec('PSLF_PYTHON') is None:
             messages.append("Can't find PSLF python libraries in directory.")
-            print(messages[-1])
+            logger.info(messages[-1])
         if not is_valid_psse_version(psse_dir):
             messages.append("Invalid PSSE version for python libraries. Need PSSE 35.6.2 or greater.")
-            print(messages[-1])
+            logger.info(messages[-1])
         elif importlib.util.find_spec('psse35') is None:
             messages.append("Can't find PSSE python libraries in directory.")
-            print(messages[-1])
+            logger.info(messages[-1])
     
     # below not necessary in its own process
     # sys.path.remove(str(pslf_py_path.parent))
@@ -514,10 +517,10 @@ def setup_():
     
     # set fta here
     if consts.IS_BUNDLED:
-        pass 
+        logger.info("setting fta: '%s' '%s' '%s'", sys.executable, "ppd.ico", ".sav") 
         set_file_type_association(sys.executable, "ppd.ico", ".sav")
     else:
-        print("> skipping set fta for unbundled files")
+        logger.info("skipping set fta for unbundled files")
 
 def set_file_type_association(exe_path, icon_name, extension):
     exe_path = Path(exe_path).resolve()
@@ -533,5 +536,5 @@ def set_file_type_association(exe_path, icon_name, extension):
     p = subprocess.run(
         cmd_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )
-    print(p.stdout)
+    logger.info("set FTA results: %s", p.stdout)
     return p.returncode

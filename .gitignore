@@ -4,5 +4,6 @@ __pycache__/
 dist/
 build/
 *.spec
+ppd*.log
 debug.log
 

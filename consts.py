@@ -1,7 +1,10 @@
 # consts.py, Charlie Jordan, 3/7/2025
 
 import sys
+import os
 from pathlib import Path
+import logging
+logger = logging.getLogger(__name__)
 
 PPD_DIR = Path(__file__).resolve().parent
 
@@ -13,6 +16,20 @@ else:
     # print('> running in a normal Python process')
     IS_BUNDLED = False
     EXE_DIR = PPD_DIR
+
+LOG_FILENAME = "ppd{}.log"
+log_path = EXE_DIR / LOG_FILENAME.format(os.getpid())
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler(filename=log_path, mode='w'),
+        logging.StreamHandler(sys.stdout)
+    ],
+    format='%(relativeCreated)05d | P%(process)5dT%(thread)5d | %(levelname)s | %(funcName)s : %(message)s'
+)
+
+logger.info("IS_BUNDLED: %s", IS_BUNDLED)
+logger.info("EXE_DIR: %s", EXE_DIR)
 
 # sys.executable is the location of the exe
 # print("> PPD_DIR:", PPD_DIR)

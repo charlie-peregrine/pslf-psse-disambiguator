@@ -7,6 +7,9 @@ import sys
 import threading
 from contextlib import redirect_stdout
 import io
+import traceback
+import logging
+logger = logging.getLogger(__name__)
 
 import consts
 import files
@@ -29,15 +32,20 @@ def bytes_check(file):
         head = fp.read(32)
         for program, hints in BYTE_HINTS.items():
             for offset, code in hints:
-                if head[offset:offset+len(code)] == code:
+                slice_ = head[offset:offset+len(code)]
+                eq = slice_ == code
+                logger.info(f"{repr(slice_)} == {repr(code)} -> {eq}")
+                if eq:
                     return program
     return ''
 
 def history_check(file):
     history = files.load_history()
     if file in history:
+        logger.info(f"File found in history: {file}")
         return history[file]
     else:
+        logger.info(f"File not found in history: {file}")
         return ''
 
 def open_check_pslf(file, prog_dir, queue_: multiprocessing.Queue):
@@ -65,8 +73,9 @@ def open_check_pslf(file, prog_dir, queue_: multiprocessing.Queue):
         exit_pslf()
         
     except Exception as e:
-        import traceback
-        traceback.print_exception(e)
+        logger.error("==== open_check_pslf ERROR ====")
+        map(logger.error, traceback.format_exc().split('\n'))
+        logger.error("==== open_check_pslf ERROR END ====")
     return pslf_good
 
 def open_check_psse(file, prog_dir, queue_: multiprocessing.Queue):
@@ -82,9 +91,12 @@ def open_check_psse(file, prog_dir, queue_: multiprocessing.Queue):
             psspy.pssehalt_2()
             
         except Exception as e:
-            import traceback
-            traceback.print_exception(e)
-    # print("out:", out.getvalue())
+            logger.error("==== open_check_psse ERROR ====")
+            map(logger.error, traceback.format_exc().split('\n'))
+            logger.error("==== open_check_psse ERROR END ====")
+    print("out:", out.getvalue())
+    logger.info("PSSE output:")
+    map(logger.info, out.getvalue().split('\n'))
     return psse_good
 
 def open_check(file):
@@ -92,20 +104,28 @@ def open_check(file):
     if configs is None:
         return ''
     q = multiprocessing.Queue()
+    logger.info("Starting Process 1")
     p1 = multiprocessing.Process(target=open_check_pslf,
             args=(file, configs['pslf'], q), daemon=True)
     p1.start()
+    logger.info("Starting Process 2")
     p2 = multiprocessing.Process(target=open_check_psse,
             args=(file, configs['psse'], q), daemon=True)
     p2.start()
     
     def join_processes(p1, p2):
+        logger.info("Joining Process 1")
         p1.join()
+        logger.info("Process 1 Joined")
+        logger.info("Joining Process 2")
         p2.join()
+        logger.info("Process 2 Joined")
     
+    logger.info("Starting join processed thread")
     CLOSE_THREAD = threading.Thread(target=join_processes, args=(p1, p2))
     CLOSE_THREAD.start()
 
+    logger.info("Waiting for queue")
     checked = 0
     result = ''
     while checked < 2:
@@ -114,9 +134,12 @@ def open_check(file):
         if val:
             result = val
             break
+    logger.info("Done waiting for queue")
     
     return result
 
 def join_close_thread():
     if CLOSE_THREAD is not None:
+        logger.info("Joining CLOSE_THREAD")
         CLOSE_THREAD.join()
+        logger.info("CLOSE_THREAD joined")
