@@ -44,27 +44,12 @@ def main():
         logger.info(f"File: '{file}'")
         # import json
         # json.dumps(configs, indent=2, default=files.path_default)
-        # maybe add something here where if the user is holding down control
-        # we disable skip prompt.
-
-        # try:
-        #     raise KeyboardInterrupt
-        # except KeyboardInterrupt:
-        #     raise KeyError
 
         from PPDWindow import PPDWindow
         ppd_window = PPDWindow(file, configs)
         ppd_window.mainloop()
-        logger.info("wowee")
-        # return
-
-        
-        
-        
-        # open a window here showing the prompt
-        # if user wants a different program open file dialog for C:\ProgramData\Microsoft\Windows\Start Menu\Programs
-        
-        logger.info("prompt time")
+        logger.info("Disambiguation Finished")
+    logger.info("Exitting Main")
 
 if __name__ == '__main__':
     multiprocessing.freeze_support()

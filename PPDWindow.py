@@ -21,35 +21,38 @@ import consts
 class PPDWindow(tk.Tk):
     def __init__(self, file: str, configs: dict, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # self.withdraw()
-        self.option_add('*tearOff', tk.FALSE)
         self.file = file
         self.configs = configs
         self.skip_prompt = self.configs['skip_prompt']
         self.after_code = ''
         self.key_bind_id = ''
 
-        self.config(bg=consts.BG_COLOR)
-        self.iconphoto(True, tk.PhotoImage(file=consts.PPD_DIR / "ppd.png"))
+        self.option_add('*tearOff', tk.FALSE)
         self.title("PSLF/PSSE Disambiguator")
+        self.iconphoto(True, tk.PhotoImage(file=consts.PPD_DIR / "ppd.png"))
+        self.config(bg=consts.BG_COLOR)
         style = ttk.Style()
         style.configure(".", background=consts.BG_COLOR)
 
         
-        self.hint_label = ttk.Label(self, text="Loading...\n\nHINT: Press Control during load to manually disambiguate.",
+        self.hint_label = ttk.Label(self, text="Loading...\n\nHINT: You can press Control during load to manually disambiguate.",
                                     padding=25, justify='center')
         self.hint_label.grid(row=0, column=0)
         self.built = False
 
         ### setup for control press if necessary
+        logger.info("self.skip_prompt: %s", self.skip_prompt)
         if self.skip_prompt:
             # wait a little for a ctrl press
             self.focus_force()
             self.key_bind_id = self.bind("<Key>", self.key_bind)
             self.after_code = self.after(600, self.run_checks)
+            logger.info("Bind and after created")
         else:
             # run checks immediately, show prompt here
+            logger.info("Building")
             self.build()
+            logger.info("Running Checks")
             self.run_checks()
 
     def build(self):
@@ -73,7 +76,6 @@ class PPDWindow(tk.Tk):
         other_image = Image.open(consts.PPD_DIR / "other.png").resize(icon_size, Resampling.NEAREST)
         self.other_icon = ImageTk.PhotoImage(other_image)
         
-        
         self.pslf_button = ttk.Button(self, image=self.pslf_icon,
                 compound='top', text="Open PSLF",
                 command=lambda: (self.destroy_and_run('pslf')))
@@ -87,6 +89,13 @@ class PPDWindow(tk.Tk):
                 command=self.pick_new_program)
         self.other_button.grid(row=1, column=2)
         
+        short_file = Path(self.file).name
+        self.top_label = ttk.Label(self,
+                justify='center', wraplength=(icon_size[0]+16)*3,
+                text=f"Choose a program to open {short_file}. "
+                "The text below the buttons shows information about the 3 checks "
+                "that the disambiguator runs automatically.")
+        self.top_label.grid(row=0, column=0, columnspan=3)
         
         self.hist_label = ttk.Label(self, text="history", justify='center',
                 wraplength=icon_size[0]+8)
@@ -151,7 +160,6 @@ class PPDWindow(tk.Tk):
         def position(label: ttk.Label, col: int):
             label.grid_configure(column=col)
         if hist_prog:
-            pass # text says open with blah
             prog = ''
             col = 0
             if hist_prog == 'pslf':
@@ -163,17 +171,16 @@ class PPDWindow(tk.Tk):
             else:
                 prog = Path(hist_prog).stem
                 col = other_col
-            self.hist_label.config(text=f"Recently opened with {prog}")
-            position(self.hist_label, col)
-            if col == other_col:
-                
-                # @TODO add menu to other program button
+                # add menu to other_button to allow choice between rerunning and
+                # choosing a new option
                 menu = tk.Menu(self.other_button)
                 menu.add_command(label=f"Open with {prog}",
                         command=lambda p=hist_prog: (self.destroy_and_run(p)))
                 menu.add_command(label=f"Choose another program...", command='')
                 self.other_button.config(command=lambda: menu.post(*self.winfo_pointerxy()))
-                pass
+
+            self.hist_label.config(text=f"Recently opened with {prog}")
+            position(self.hist_label, col)
         else:
             # text says can't find a program
             position(self.hist_label, other_col)
@@ -197,9 +204,9 @@ class PPDWindow(tk.Tk):
                 position(self.open_label, psse_col)
                 self.open_label.config(text=f"Opening the SAV in PSSE succeeded.")
             else:
+                # text says can't find a program
                 position(self.open_label, other_col)
                 self.open_label.config(text=f"Opening the SAV in PSLF and PSSE failed.")
-                pass # text says can't find a program
         else:
             position(self.open_label, other_col)
             self.open_label.config(text=f"PPD not configured to use python APIs.")
@@ -207,11 +214,14 @@ class PPDWindow(tk.Tk):
         self.deiconify()
         
     def destroy_and_run(self, program: str):
+        logger.info("Entering destroy and run")
         self.destroy()
         run_program(program, self.file)
         hist = files.load_history()
         if self.file not in hist or hist[self.file] != program:
+            logger.info("Adding to history")
             files.history_set(self.file, program)
+        logger.info("Exitting destroy and run")
     
     def key_bind(self, e: tk.Event):
         logger.info("Event: %s", e)
@@ -254,9 +264,6 @@ class PPDWindow(tk.Tk):
         else:
             logger.info("No program selected.")
             
-
-
-
 def run_program(program, file):
     # add a process layer to avoid directory change effects
     p = multiprocessing.Process(target=_run_program, args=(program, file))

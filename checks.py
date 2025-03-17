@@ -54,12 +54,15 @@ def open_check_pslf(file, prog_dir, queue_: multiprocessing.Queue):
     sys.path.append(str(pslf_py_path.parent))
     
     pslf_good = False
+    popen_obj = None
     try:
         from PSLF_PYTHON import Pslf, PSLFInstance, exit_pslf
         path = Path(consts.PSLF_EXE_SUFFIX).name
         args = [path, "-w", str(Path(file).parent), "-s"]
+        # Call subprocess
         popen_obj = subprocess.Popen(args,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT) # Call subprocess
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, creationflags=subprocess.CREATE_NO_WINDOW)
         PSLFInstance.instance = str(popen_obj.pid)
 
         # check here
@@ -77,6 +80,12 @@ def open_check_pslf(file, prog_dir, queue_: multiprocessing.Queue):
         for line in traceback.format_exc().split('\n'):
             logger.error(line)
         logger.error("==== open_check_pslf ERROR END ====")
+    if popen_obj is not None and popen_obj.stdout is not None:
+        out = popen_obj.stdout.read()
+        logger.info("== PSLF output:")
+        for line in out.split('\n'):
+            logger.info(line)
+        logger.info("== end PSLF output")
     return pslf_good
 
 def open_check_psse(file, prog_dir, queue_: multiprocessing.Queue):

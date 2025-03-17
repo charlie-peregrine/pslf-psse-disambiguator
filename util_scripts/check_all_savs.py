@@ -24,7 +24,6 @@ def process_line(file, dict_, bad_ls, lock):
             lock.acquire()
             bad_ls.append(file)
             lock.release()
-            pass
     finally:
         try:
             lock.release()

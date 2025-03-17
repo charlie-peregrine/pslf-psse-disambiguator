@@ -20,8 +20,6 @@ def path_default(obj):
         return str(obj)
     raise TypeError(f'Cannot serialize object of {type(obj)}')
 
-
-
 def load_config():
     config_path = consts.EXE_DIR / consts.CONFIG_FILENAME
     logger.info(f"Getting config file from {config_path}")
@@ -33,7 +31,7 @@ def load_config():
 
             logger.info("Config loaded successfully.")
             for k, v in dict_.items():
-                logger.info(f"configs: {k:<15}{v}")
+                logger.info(f"configs: {k:>15} : {v}")
             return dict_
     except (FileNotFoundError, json.decoder.JSONDecodeError) as e:
         logger.info("Config load failed. reason: %s", e)

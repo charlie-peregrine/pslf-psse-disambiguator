@@ -25,7 +25,7 @@ logging.basicConfig(
         logging.FileHandler(filename=log_path, mode='w'),
         logging.StreamHandler(sys.stdout)
     ],
-    format='%(asctime)s.%(msecs)03d | P%(process)5d-T%(thread)5d | %(levelname)s | %(funcName)s : %(message)s',
+    format='%(asctime)s.%(msecs)03d | P%(process)05d-T%(thread)05d | %(levelname)s | %(funcName)16s : %(message)s',
     datefmt='%H:%M:%S'
 )
 
