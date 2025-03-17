@@ -322,7 +322,7 @@ class SetupWindow(tk.Tk):
         if consts.IS_BUNDLED:
             set_file_type_association(sys.executable, "ppd.ico", ".sav")
         else:
-            print("> skipping set fta for unbundled files")
+            logger.info("skipping set fta for unbundled files")
         
         # done tag for letting other stuff run properly after this window is closed
         self.done = True

@@ -25,7 +25,8 @@ logging.basicConfig(
         logging.FileHandler(filename=log_path, mode='w'),
         logging.StreamHandler(sys.stdout)
     ],
-    format='%(relativeCreated)05d | P%(process)5dT%(thread)5d | %(levelname)s | %(funcName)s : %(message)s'
+    format='%(asctime)s.%(msecs)03d | P%(process)5d-T%(thread)5d | %(levelname)s | %(funcName)s : %(message)s',
+    datefmt='%H:%M:%S'
 )
 
 logger.info("IS_BUNDLED: %s", IS_BUNDLED)

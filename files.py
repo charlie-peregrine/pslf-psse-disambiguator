@@ -32,6 +32,8 @@ def load_config():
                 set_psse_version(dict_['psse_version'][0])
 
             logger.info("Config loaded successfully.")
+            for k, v in dict_.items():
+                logger.info(f"configs: {k:<15}{v}")
             return dict_
     except (FileNotFoundError, json.decoder.JSONDecodeError) as e:
         logger.info("Config load failed. reason: %s", e)
@@ -80,11 +82,11 @@ def remix_logs():
         os.remove(path)
         # print(path)
     def key_(x):
-        y = re.search(r"\d+", x)
+        y = re.search(r"[0-9:.]+", x)
         if y is not None:
-            return int(y[0])
+            return y[0]
         else:
-            return 0
+            return ''
     lines.sort(key=key_)
     with open(consts.EXE_DIR / 'ppd.log', 'w') as fp:
         fp.write('\n'.join(lines))

@@ -74,7 +74,8 @@ def open_check_pslf(file, prog_dir, queue_: multiprocessing.Queue):
         
     except Exception as e:
         logger.error("==== open_check_pslf ERROR ====")
-        map(logger.error, traceback.format_exc().split('\n'))
+        for line in traceback.format_exc().split('\n'):
+            logger.error(line)
         logger.error("==== open_check_pslf ERROR END ====")
     return pslf_good
 
@@ -92,11 +93,13 @@ def open_check_psse(file, prog_dir, queue_: multiprocessing.Queue):
             
         except Exception as e:
             logger.error("==== open_check_psse ERROR ====")
-            map(logger.error, traceback.format_exc().split('\n'))
+            for line in traceback.format_exc().split('\n'):
+                logger.error(line)
             logger.error("==== open_check_psse ERROR END ====")
-    print("out:", out.getvalue())
-    logger.info("PSSE output:")
-    map(logger.info, out.getvalue().split('\n'))
+    logger.info("== PSSE output:")
+    for line in out.getvalue().split('\n'):
+        logger.info(line)
+    logger.info("== end PSSE output")
     return psse_good
 
 def open_check(file):
