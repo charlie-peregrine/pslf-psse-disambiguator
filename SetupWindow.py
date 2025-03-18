@@ -18,9 +18,35 @@ logger = logging.getLogger(__name__)
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog as fd
+from idlelib.tooltip import Hovertip
+from textwrap import wrap as wraptext
 
 import consts
 import files
+
+setup_text = ("This is the Setup window for PSLF/PSSE Disambiguator (PPD). "
+            "PPD uses 3 checks to determine which program to open a SAV "
+            "file with (hover for more info). After setup is over the "
+            "program will automatically associate files ending in .sav "
+            "with this program, and you will be able to run PPD "
+            "directly by clicking a SAV file anywhere on your system. "
+            "Please follow the steps below to set up the program.")
+hover_text = ("The checks, performed in order are:\n1. A history check. The "
+            "program stores a history of files opened with this program and "
+            "which program the file was opened with. This allows the program "
+            "to also be used to always open a specific file with a different "
+            "program (e.g. many videogames also use the .sav file extension "
+            "internally, and you might want to open those with a text editor "
+            "instead of PSLF).\n2. A bytes check. The "
+            "leading ~16 bytes of a SAV file contains information that is "
+            "unique to the program that created it. By comparing the bytes "
+            "from the SAV files to to known byte strings we can determine "
+            "which program to open the file with.\n3. An open check. "
+            "The last and slowest check that is run is an open check. This "
+            "check just tries opening the sav file in both programs, using "
+            "the published python api's for the two programs, and whichever "
+            "program successfully opens the file is the correct program. This "
+            "check happens in the background.")
 
 class SetupWindow(tk.Tk):
     def __init__(self):
@@ -65,10 +91,23 @@ class SetupWindow(tk.Tk):
         
         style = ttk.Style()
         self.config(bg=consts.BG_COLOR)
+        style.element_create('Labelframe.border', "from", 'alt')
+        # below would be necessary if this were a different style name
+        # style.layout('TLabelframe', [
+        #     ('Labelframe.border', {'sticky' : 'nsew'})
+        # ])
+        style.configure('TLabelframe', relief='solid', bordercolor='slategrey', borderwidth=1)
         style.configure(".", background=consts.BG_COLOR)
         style.configure("BadEntry.TEntry", fieldbackground='lightred')
         style.configure("GoodEntry.TEntry", fieldbackground='lightgreen')
         
+        self.top_label = ttk.Label(self, wraplength=450, justify='left',
+                text=setup_text)
+        self.top_label.grid(row=0, column=0, padx=3, pady=3)
+        text_ls = ["\n".join(wraptext(t, 150)) for t in hover_text.split("\n")]
+        text = "\n".join(text_ls)
+        Hovertip(self.top_label, text=text, hover_delay=500)
+
         # buttons to save and close
         ### Button Frame
         self.button_frame = ttk.Frame(self)
@@ -88,7 +127,7 @@ class SetupWindow(tk.Tk):
         
         ### labelframe for setting directories
         self.exe_frame = ttk.LabelFrame(self, text="Step 1: Program Directories")
-        self.exe_frame.grid(row=0, column=0, sticky='ew', padx=3, pady=3)
+        self.exe_frame.grid(row=1, column=0, sticky='ew', padx=3, pady=3)
         self.exe_frame.columnconfigure(1, weight=1)
 
         self.exe_label = ttk.Label(self.exe_frame, wraplength=450, justify='left',
@@ -128,7 +167,7 @@ class SetupWindow(tk.Tk):
 
         ### Labelframe for misc options
         self.misc_frame = ttk.LabelFrame(self, text="Step 2: Preferences and Hints")
-        self.misc_frame.grid(row=1, column=0, sticky='ew', padx=3, pady=3)
+        self.misc_frame.grid(row=2, column=0, sticky='ew', padx=3, pady=3)
         self.misc_frame.columnconfigure(1, weight=1)
 
         # skip prompt checkbox
@@ -138,13 +177,13 @@ class SetupWindow(tk.Tk):
         self.show_prompt_checkbox = ttk.Checkbutton(self.misc_frame, variable=self.show_prompt_var)
         self.show_prompt_checkbox.grid(row=0, column=0)
         self.show_prompt_label = ttk.Label(self.misc_frame, wraplength=400,
-                text="Show a prompt to pick which program to run for a sav file regardless of the automatically detected type. If unsure, it is highly recommended to leave this box unchecked.",
+                text="Show a prompt to pick which program to run for a SAV file regardless of the automatically detected type. If unsure, it is highly recommended to leave this box unchecked.",
                 justify='left')
         self.show_prompt_label.grid(row=0, column=1, sticky='w')
         
         # hint about hold control to show window regardless of skip prompt
         self.hint_label = ttk.Label(self.misc_frame, wraplength=450,
-                text="HINT: If you left the box above unchecked you can still access the prompt by holding Control while the disambiguator is loading after opening a sav file.",
+                text="HINT: If you left the box above unchecked you can still access the prompt by holding Control while the disambiguator is loading after opening a SAV file.",
                 justify='left')
         self.hint_label.grid(row=1, column=0, columnspan=2, sticky='w')
         
@@ -164,16 +203,17 @@ class SetupWindow(tk.Tk):
         for frame in (self.exe_frame, self.misc_frame, self.button_frame):
             for widget in frame.winfo_children():
                 widget.grid_configure(padx=4, pady=3)
+        self.show_prompt_checkbox.grid_configure(padx=(12, 0))
 
     def process_listener(self):
         if not self.queue.empty():
             good_str = (
                 "The program will be able to use the PSLF and PSSE python "
-                "APIs to disambiguate sav files in addition to the other methods."
+                "APIs to disambiguate SAV files in addition to the other methods."
             )
             bad_str = (
                 "The program won't be able to use the PSLF and PSSE python "
-                "APIs to disambiguate sav files. If you have a higher version "
+                "APIs to disambiguate SAV files. If you have a higher version "
                 "installed then select that, otherwise don't worry, the "
                 "python APIs are not strictly necessary. Reason(s): "
             )

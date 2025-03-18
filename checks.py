@@ -134,6 +134,7 @@ def open_check(file):
         logger.info("Process 2 Joined")
     
     logger.info("Starting join processed thread")
+    global CLOSE_THREAD
     CLOSE_THREAD = threading.Thread(target=join_processes, args=(p1, p2))
     CLOSE_THREAD.start()
 

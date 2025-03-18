@@ -3,6 +3,9 @@
 import json
 import os
 from pathlib import PurePath
+import time
+from tkinter import messagebox
+import traceback
 import consts
 import re
 import logging
@@ -71,20 +74,38 @@ def history_set(file, program):
     save_history(history)
     logger.info("Added {%s : %s} to history", file, program)
 
+def _line_sort_key(x):
+    y = re.search(r"[0-9:.]+", x)
+    if y is not None:
+        return y[0]
+    else:
+        return ''
+
 def remix_logs():
     lines = []
+    oserrors = []
     for path in consts.EXE_DIR.glob('ppd?*.log'):
-        with open(path, 'r') as fp:
-            while line := fp.readline():
-                lines.append(line.rstrip())
-        os.remove(path)
-        # print(path)
-    def key_(x):
-        y = re.search(r"[0-9:.]+", x)
-        if y is not None:
-            return y[0]
-        else:
-            return ''
-    lines.sort(key=key_)
-    with open(consts.EXE_DIR / 'ppd.log', 'w') as fp:
-        fp.write('\n'.join(lines))
+        try:
+            with open(path, 'r') as fp:
+                while line := fp.readline():
+                    lines.append(line.rstrip())
+            os.remove(path)
+        except OSError:
+            oserrors.append(traceback.format_exc())
+
+    lines.sort(key=_line_sort_key)
+    try:
+        with open(consts.EXE_DIR / 'ppd.log', 'w') as fp:
+            fp.write('\n'.join(lines))
+    except OSError:
+        oserrors.append(traceback.format_exc())
+
+    if oserrors:
+        log_name = (f"remix_error_{time.strftime('%Y-%m-%d_%H-%M-%S')}.log")
+        with open(consts.EXE_DIR / log_name, 'w') as fp:
+            fp.write(log_name + '\n')
+            for err in oserrors:
+                fp.write("==========\n")
+                fp.write(err)
+                fp.write('\n')
+        messagebox.showerror(title="Remix Logs Error", message=f"An error occured while remixing the ppd logs. Please attach {log_name} and every ppd###.log (where ### is any amount of digits) file in your PSLF/PSSE Disambiguator installation directory to your bug report.")

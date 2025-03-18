@@ -40,7 +40,8 @@ class PPDWindow(tk.Tk):
         self.iconphoto(True, tk.PhotoImage(file=consts.PPD_DIR / "ppd.png"))
         self.config(bg=consts.BG_COLOR)
         self.resizable(False, False)
-        self.bind("<Escape>", lambda e: self.destroy())
+        self.wm_protocol("WM_DELETE_WINDW", self.close_callback)
+        self.bind("<Escape>", self.close_callback)
         style = ttk.Style()
         style.configure(".", background=consts.BG_COLOR)
 
@@ -53,6 +54,7 @@ class PPDWindow(tk.Tk):
         self.open_result = ''
         self.open_thread = threading.Thread(target=self._open_check)
         self.open_thread.start()
+        self.check_after_code = ''
 
         ### setup for control press if necessary
         logger.info("self.skip_prompt: %s", self.skip_prompt)
@@ -128,7 +130,7 @@ class PPDWindow(tk.Tk):
     def wait_for_open_thread(self):
         if self.open_thread.is_alive():
             logger.info("Waiting for open thread")
-            self.after(100, self.wait_for_open_thread)
+            self.check_after_code = self.after(100, self.wait_for_open_thread)
             return
         logger.info("Done waiting for open thread")
         self.open_thread.join()
@@ -156,7 +158,16 @@ class PPDWindow(tk.Tk):
             self.open_label.config(text=f"PPD not configured to use python APIs.")
         logger.info("wait_for_open_thread finished.")
 
-        
+    def close_callback(self, e=None):
+        logger.info("Closing PPD")
+        if self.check_after_code:
+            logger.info("Stopping after")
+            self.after_cancel(self.check_after_code)
+        logger.info("Destroying window")
+        self.destroy()
+        logger.info("Joining open thread")
+        self.open_thread.join()
+        logger.info("Done closing PPD")
     
     def _open_check(self):
         # if this is the right version to use the python libraries then check

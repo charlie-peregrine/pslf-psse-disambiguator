@@ -71,5 +71,6 @@ if __name__ == '__main__':
         )
     # input("Press Enter to close")
     checks.join_close_thread()
+    logger.info("Shutting down logging and remixing logs to ppd.log")
     logging.shutdown()
     files.remix_logs()
