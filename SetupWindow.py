@@ -138,20 +138,18 @@ class SetupWindow(tk.Tk):
         self.show_prompt_checkbox = ttk.Checkbutton(self.misc_frame, variable=self.show_prompt_var)
         self.show_prompt_checkbox.grid(row=0, column=0)
         self.show_prompt_label = ttk.Label(self.misc_frame, wraplength=400,
-                text="Show a prompt to pick which program to run for a sav file regardless of the automatically detected type. If unsure, it is recommended to leave this box unchecked.",
+                text="Show a prompt to pick which program to run for a sav file regardless of the automatically detected type. If unsure, it is highly recommended to leave this box unchecked.",
                 justify='left')
         self.show_prompt_label.grid(row=0, column=1, sticky='w')
         
         # hint about hold control to show window regardless of skip prompt
         self.hint_label = ttk.Label(self.misc_frame, wraplength=450,
-                text="HINT: If you left the box above unchecked you can still access the prompt by holding Control while opening a sav file.",
+                text="HINT: If you left the box above unchecked you can still access the prompt by holding Control while the disambiguator is loading after opening a sav file.",
                 justify='left')
         self.hint_label.grid(row=1, column=0, columnspan=2, sticky='w')
         
         
         # Status for using python libraries
-        # @TODO add variable depending on results
-        # @TODO convert check py library func to an after listener and threads
         sep = ttk.Separator(self.misc_frame, orient='horizontal')
         sep.grid(row=2, column=0, columnspan=2, sticky='ew')
         self.py_library_label = ttk.Label(self.misc_frame, wraplength=450,

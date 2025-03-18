@@ -11,12 +11,20 @@ import logging
 from PIL import Image, ImageTk
 from PIL.Image import Resampling
 from win32comext.shell import shell, shellcon
+import threading
 logger = logging.getLogger(__name__)
 
 
 import files
 import checks
 import consts
+
+# program constants for which column each program goes in the interface
+pslf_col = 0
+psse_col = 1
+other_col = 2
+
+ICON_SIZE = (128, 128)
 
 class PPDWindow(tk.Tk):
     def __init__(self, file: str, configs: dict, *args, **kwargs):
@@ -31,6 +39,8 @@ class PPDWindow(tk.Tk):
         self.title("PSLF/PSSE Disambiguator")
         self.iconphoto(True, tk.PhotoImage(file=consts.PPD_DIR / "ppd.png"))
         self.config(bg=consts.BG_COLOR)
+        self.resizable(False, False)
+        self.bind("<Escape>", lambda e: self.destroy())
         style = ttk.Style()
         style.configure(".", background=consts.BG_COLOR)
 
@@ -40,20 +50,24 @@ class PPDWindow(tk.Tk):
         self.hint_label.grid(row=0, column=0)
         self.built = False
 
+        self.open_result = ''
+        self.open_thread = threading.Thread(target=self._open_check)
+        self.open_thread.start()
+
         ### setup for control press if necessary
         logger.info("self.skip_prompt: %s", self.skip_prompt)
         if self.skip_prompt:
             # wait a little for a ctrl press
             self.focus_force()
             self.key_bind_id = self.bind("<Key>", self.key_bind)
-            self.after_code = self.after(600, self.run_checks)
+            self.after_code = self.after(600, self.process_checks)
             logger.info("Bind and after created")
         else:
             # run checks immediately, show prompt here
             logger.info("Building")
             self.build()
             logger.info("Running Checks")
-            self.run_checks()
+            self.process_checks()
 
     def build(self):
         #                    
@@ -67,13 +81,12 @@ class PPDWindow(tk.Tk):
         
         self.hint_label.destroy()
         
-        icon_size = (128, 128)
         # pslf line with icon, entry, select button
-        pslf_image = Image.open(consts.PPD_DIR / "pslf.png").resize(icon_size, Resampling.BICUBIC)
+        pslf_image = Image.open(consts.PPD_DIR / "pslf.png").resize(ICON_SIZE, Resampling.BICUBIC)
         self.pslf_icon = ImageTk.PhotoImage(pslf_image)
-        psse_image = Image.open(consts.PPD_DIR / "psse.png").resize(icon_size, Resampling.BICUBIC)
+        psse_image = Image.open(consts.PPD_DIR / "psse.png").resize(ICON_SIZE, Resampling.BICUBIC)
         self.psse_icon = ImageTk.PhotoImage(psse_image)
-        other_image = Image.open(consts.PPD_DIR / "other.png").resize(icon_size, Resampling.NEAREST)
+        other_image = Image.open(consts.PPD_DIR / "other.png").resize(ICON_SIZE, Resampling.NEAREST)
         self.other_icon = ImageTk.PhotoImage(other_image)
         
         self.pslf_button = ttk.Button(self, image=self.pslf_icon,
@@ -91,127 +104,150 @@ class PPDWindow(tk.Tk):
         
         short_file = Path(self.file).name
         self.top_label = ttk.Label(self,
-                justify='center', wraplength=(icon_size[0]+16)*3,
+                justify='center', wraplength=(ICON_SIZE[0]+16)*3,
                 text=f"Choose a program to open {short_file}. "
                 "The text below the buttons shows information about the 3 checks "
                 "that the disambiguator runs automatically.")
         self.top_label.grid(row=0, column=0, columnspan=3)
         
         self.hist_label = ttk.Label(self, text="history", justify='center',
-                wraplength=icon_size[0]+8)
-        self.hist_label.grid(row=2, column=0, sticky='ew')
+                wraplength=ICON_SIZE[0]+8)
+        self.hist_label.grid(row=2, column=0)
         self.bytes_label = ttk.Label(self, text="bytes", justify='center',
-                wraplength=icon_size[0]+8)
-        self.bytes_label.grid(row=3, column=1, sticky='ew')
+                wraplength=ICON_SIZE[0]+8)
+        self.bytes_label.grid(row=3, column=1)
         self.open_label = ttk.Label(self, text="open", justify='center',
-                wraplength=icon_size[0]+8)
-        self.open_label.grid(row=4, column=2, sticky='ew')
+                wraplength=ICON_SIZE[0]+8)
+        self.open_label.grid(row=4, column=2)
         
         for widget in self.winfo_children():
             widget.grid_configure(padx=4, pady=3)
         
         self.built = True
 
-    def run_checks(self):
-    
-        # open history and check if the file is there
-        hist_prog = checks.history_check(self.file)
-        logger.info(f"history_check result: '{hist_prog}'")
-        if self.skip_prompt and hist_prog:
-            logger.info(f"Starting {self.file} in {hist_prog}")
-            run_program(hist_prog, self.file)
-            self.destroy()
+    def wait_for_open_thread(self):
+        if self.open_thread.is_alive():
+            logger.info("Waiting for open thread")
+            self.after(100, self.wait_for_open_thread)
+            return
+        logger.info("Done waiting for open thread")
+        self.open_thread.join()
+        
+        if self.skip_prompt and self.open_result:
+            self._run_from_check(self.file, self.open_result, save_history=True)
             return
         
-        # check the header bytes
-        bytes_prog = checks.bytes_check(self.file)
-        logger.info(f"bytes_check result: '{bytes_prog}'")
-        if self.skip_prompt and bytes_prog:
-            logger.info(f"Starting {self.file} in {bytes_prog}")
-            run_program(bytes_prog, self.file)
-            files.history_set(self.file, bytes_prog)
-            self.destroy()
-            return
+        self.open_label.config(wraplength=ICON_SIZE[0]+8)
+        self.open_label.grid_configure(columnspan=1)
 
+        if self.configs['use_python']:
+            if self.open_result == 'pslf':
+                position_label(self.open_label, pslf_col)
+                self.open_label.config(text=f"Opening the SAV in PSLF succeeded.")
+            elif self.open_result == 'psse':
+                position_label(self.open_label, psse_col)
+                self.open_label.config(text=f"Opening the SAV in PSSE succeeded.")
+            else:
+                # text says can't find a program
+                position_label(self.open_label, other_col)
+                self.open_label.config(text=f"Opening the SAV in PSLF and PSSE failed.")
+        else:
+            position_label(self.open_label, other_col)
+            self.open_label.config(text=f"PPD not configured to use python APIs.")
+        logger.info("wait_for_open_thread finished.")
+
+        
+    
+    def _open_check(self):
         # if this is the right version to use the python libraries then check
         # if the program can be run with those.
-        open_prog = ''
+        self.open_result = ''
         if self.configs['use_python']:
             logger.info("running open_check.")
-            open_prog = checks.open_check(self.file)
-            logger.info(f"open_check result: '{open_prog}'")
-            if self.skip_prompt and open_prog:
-                logger.info(f"Starting {self.file} in {open_prog}")
-                run_program(open_prog, self.file)
-                files.history_set(self.file, open_prog)
-                self.destroy()
-                return
+            self.open_result = checks.open_check(self.file)
+            logger.info(f"open_check result: '{self.open_result}'")
+            if self.open_result:
+                logger.info(f"Successful open check")
         else:
             logger.info("skipping open_check.")
         
+    def _run_from_check(self, file, prog, save_history=False):
+        logger.info(f"Starting {file} in {prog}")
+        if save_history:
+            files.history_set(file, prog)
+        run_program(prog, file)
+        self.destroy()
+    
+    def process_checks(self):
+        # open history and check if the file is there
+        hist_result = checks.history_check(self.file)
+        logger.info(f"history_check result: '{hist_result}'")
+        if self.skip_prompt and hist_result:
+            logger.info(f"Successful history check")
+            self._run_from_check(self.file, hist_result)
+            return
+        
+        # check the header bytes
+        bytes_result = checks.bytes_check(self.file)
+        logger.info(f"bytes_check result: '{bytes_result}'")
+        if self.skip_prompt and bytes_result:
+            logger.info(f"Successful bytes check")
+            self._run_from_check(self.file, bytes_result, save_history=True)
+            return
+        
         if not self.built:
             self.build()
-        
-        # if we're here then we use the program responses to put determine
+
+        # if we're here then we use the program responses to determine
         # what to put in the labels and where to place them
-        pslf_col = 0
-        psse_col = 1
-        other_col = 2
-        def position(label: ttk.Label, col: int):
-            label.grid_configure(column=col)
-        if hist_prog:
+
+        # history check may have a different program in it and we need more logic
+        # to account for that.
+        if hist_result:
             prog = ''
             col = 0
-            if hist_prog == 'pslf':
+            if hist_result == 'pslf':
                 prog = 'PSLF'
                 col = pslf_col
-            elif hist_prog == 'psse':
+            elif hist_result == 'psse':
                 prog = 'PSSE'
                 col = psse_col
             else:
-                prog = Path(hist_prog).stem
+                prog = Path(hist_result).stem
                 col = other_col
                 # add menu to other_button to allow choice between rerunning and
                 # choosing a new option
                 menu = tk.Menu(self.other_button)
                 menu.add_command(label=f"Open with {prog}",
-                        command=lambda p=hist_prog: (self.destroy_and_run(p)))
+                        command=lambda p=hist_result: (self.destroy_and_run(p)))
                 menu.add_command(label=f"Choose another program...", command='')
                 self.other_button.config(command=lambda: menu.post(*self.winfo_pointerxy()))
 
             self.hist_label.config(text=f"Recently opened with {prog}")
-            position(self.hist_label, col)
+            position_label(self.hist_label, col)
         else:
             # text says can't find a program
-            position(self.hist_label, other_col)
+            position_label(self.hist_label, other_col)
             self.hist_label.config(text="Previous program not found in history.")
         
-        if bytes_prog == 'pslf':
-            position(self.bytes_label, pslf_col)
+        if bytes_result == 'pslf':
+            position_label(self.bytes_label, pslf_col)
             self.bytes_label.config(text=f"SAV leading bytes check: PSLF")
-        elif bytes_prog == 'psse':
-            position(self.bytes_label, psse_col)
+        elif bytes_result == 'psse':
+            position_label(self.bytes_label, psse_col)
             self.bytes_label.config(text=f"SAV leading bytes check: PSSE")
         else:
-            position(self.bytes_label, other_col)
+            position_label(self.bytes_label, other_col)
             self.bytes_label.config(text=f"SAV leading bytes check failed.")
 
-        if self.configs['use_python']:
-            if open_prog == 'pslf':
-                position(self.open_label, pslf_col)
-                self.open_label.config(text=f"Opening the SAV in PSLF succeeded.")
-            elif open_prog == 'psse':
-                position(self.open_label, psse_col)
-                self.open_label.config(text=f"Opening the SAV in PSSE succeeded.")
-            else:
-                # text says can't find a program
-                position(self.open_label, other_col)
-                self.open_label.config(text=f"Opening the SAV in PSLF and PSSE failed.")
-        else:
-            position(self.open_label, other_col)
-            self.open_label.config(text=f"PPD not configured to use python APIs.")
-            
+        # set the label to show waiting text and then wait for the
+        # open_check to finish
+        self.open_label.config(wraplength=(ICON_SIZE[0]+16)*3,
+                text="Waiting for the PSLF and PSSE checks to finish...")
+        self.open_label.grid_configure(column=pslf_col, columnspan=3)
         self.deiconify()
+        self.wait_for_open_thread()
+            
         
     def destroy_and_run(self, program: str):
         logger.info("Entering destroy and run")
@@ -230,7 +266,7 @@ class PPDWindow(tk.Tk):
             self.after_cancel(self.after_code)
             self.skip_prompt = False
             self.withdraw()
-            self.run_checks()
+            self.process_checks()
     
     def pick_new_program(self):
         startmenu_folder = shell.SHGetSpecialFolderPath(0,shellcon.CSIDL_COMMON_STARTMENU)
@@ -264,6 +300,9 @@ class PPDWindow(tk.Tk):
         else:
             logger.info("No program selected.")
             
+def position_label(label: ttk.Label, col: int):
+    label.grid_configure(column=col)
+
 def run_program(program, file):
     # add a process layer to avoid directory change effects
     p = multiprocessing.Process(target=_run_program, args=(program, file))
