@@ -62,14 +62,14 @@ class PPDWindow(tk.Tk):
             # wait a little for a ctrl press
             self.focus_force()
             self.key_bind_id = self.bind("<Key>", self.key_bind)
-            self.after_code = self.after(600, self.process_checks)
+            self.after_code = self.after(600, self.handle_check_results)
             logger.info("Bind and after created")
         else:
             # run checks immediately, show prompt here
             logger.info("Building")
             self.build()
             logger.info("Running Checks")
-            self.process_checks()
+            self.handle_check_results()
 
     def build(self):
         #                    
@@ -189,7 +189,7 @@ class PPDWindow(tk.Tk):
         run_program(prog, file)
         self.destroy()
     
-    def process_checks(self):
+    def handle_check_results(self):
         # open history and check if the file is there
         hist_result = checks.history_check(self.file)
         logger.info(f"history_check result: '{hist_result}'")
@@ -277,7 +277,7 @@ class PPDWindow(tk.Tk):
             self.after_cancel(self.after_code)
             self.skip_prompt = False
             self.withdraw()
-            self.process_checks()
+            self.handle_check_results()
     
     def pick_new_program(self):
         startmenu_folder = shell.SHGetSpecialFolderPath(0,shellcon.CSIDL_COMMON_STARTMENU)
