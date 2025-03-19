@@ -1,6 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
+from PyInstaller.building.api import PYZ, EXE, COLLECT
+from PyInstaller.building.build_main import Analysis
 a = Analysis(
     ['pslf-psse-disambiguator.py'],
     pathex=[],
