@@ -49,7 +49,7 @@ hover_text = ("The checks, performed in order are:\n1. A history check. The "
             "check happens in the background.")
 
 class SetupWindow(tk.Tk):
-    def __init__(self):
+    def __init__(self, configs):
         super().__init__()
         
         self.title("PSLF/PSSE Disambiguator Setup")
@@ -61,7 +61,6 @@ class SetupWindow(tk.Tk):
         # self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
         
-        configs = files.load_config()
         if configs is None:
             self.configs = {}
             self.configs['pslf'] = consts.DEFAULT_PSLF_DIR_PATH

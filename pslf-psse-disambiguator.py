@@ -23,7 +23,7 @@ def main():
     # show setup window
     if configs is None or len(sys.argv) < 2:
         logger.info("Starting Setup")
-        setupwindow = SetupWindow()
+        setupwindow = SetupWindow(configs)
         setupwindow.mainloop()
         
         if not setupwindow.done:
