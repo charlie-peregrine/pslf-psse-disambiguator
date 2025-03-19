@@ -4,12 +4,13 @@ import sys
 import multiprocessing
 import traceback
 import logging
+from tkinter.messagebox import showerror
 logger = logging.getLogger(__name__)
 
 import checks
 import files
 from SetupWindow import SetupWindow
-from tkinter.messagebox import showerror
+from PPDWindow import PPDWindow
 
 
 def main():
@@ -42,10 +43,7 @@ def main():
         logger.info("Starting Disambiguation")
         file = sys.argv[1]
         logger.info(f"File: '{file}'")
-        # import json
-        # json.dumps(configs, indent=2, default=files.path_default)
 
-        from PPDWindow import PPDWindow
         ppd_window = PPDWindow(file, configs)
         ppd_window.mainloop()
         logger.info("Disambiguation Finished")
