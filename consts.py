@@ -3,6 +3,8 @@
 import sys
 import os
 from pathlib import Path
+import psutil
+import re
 import logging
 logger = logging.getLogger(__name__)
 
@@ -17,8 +19,30 @@ else:
     IS_BUNDLED = False
     EXE_DIR = PPD_DIR
 
+# determine where to put log
+# find a parent process if it exists from the log folders and return it
+# also handles making folders if they don't exist or if this is the main process
+def get_log_folder():
+    this_pid = os.getpid()
+    parent_pids = [p.pid for p in psutil.Process(this_pid).parents()]
+    if not LOGS_DIR.exists():
+        os.mkdir(LOGS_DIR)
+    for path in LOGS_DIR.glob('logs*'):
+        if path.is_dir():
+            m = re.match(r'^logs(\d+)$', path.name)
+            if m:
+                pid = int(m[1])
+                if pid in parent_pids:
+                    return path
+    log_folder = LOGS_DIR / f"logs{this_pid}"
+    if not log_folder.exists():
+        os.mkdir(log_folder)
+    return log_folder
+
+LOGS_DIR = EXE_DIR / 'logs'
+LOG_COPY_LOCK_FILE = EXE_DIR / '.logcopylock'
 LOG_FILENAME = "ppd{}.log"
-log_path = EXE_DIR / LOG_FILENAME.format(os.getpid())
+log_path = get_log_folder() / LOG_FILENAME.format(os.getpid())
 logging.basicConfig(
     level=logging.INFO,
     handlers=[

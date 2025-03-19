@@ -7,6 +7,8 @@ import time
 from tkinter import messagebox
 import traceback
 import consts
+import filelock
+import shutil
 import re
 import logging
 logger = logging.getLogger(__name__)
@@ -81,31 +83,71 @@ def _line_sort_key(x):
     else:
         return ''
 
+# remove two day old logs and dangling log folders
+def remove_old_logs():
+    now = time.time()
+    thirty_minutes_ago = now - 1800
+    two_days_ago = now - 2 * 86400
+    for path in consts.LOGS_DIR.iterdir():
+        ctime = path.stat().st_ctime
+        if path.is_dir() and not any(os.scandir(path)):
+            if ctime < thirty_minutes_ago:
+                os.rmdir(path)
+        else:
+            if ctime < two_days_ago:
+                os.remove(path)
+
 def remix_logs():
     lines = []
     oserrors = []
-    for path in consts.EXE_DIR.glob('ppd?*.log'):
+    earliest_time = time.time()
+    log_folder = consts.get_log_folder()
+    for path in log_folder.glob('ppd?*.log'):
+        earliest_time = min(earliest_time, int(path.stat().st_ctime))
         try:
             with open(path, 'r') as fp:
                 while line := fp.readline():
-                    lines.append(line.rstrip())
+                    lines.append(line)
             os.remove(path)
         except OSError:
             oserrors.append(traceback.format_exc())
 
     lines.sort(key=_line_sort_key)
+    ppd_log_name = consts.LOG_FILENAME.format(
+        time.strftime('_%Y-%m-%d_%H-%M-%S', time.localtime(earliest_time))
+    )
+    merged_log = consts.LOGS_DIR / ppd_log_name
     try:
-        with open(consts.EXE_DIR / 'ppd.log', 'w') as fp:
-            fp.write('\n'.join(lines))
+        with open(merged_log, 'w') as fp:
+            for line in lines:
+                fp.write(line)
     except OSError:
         oserrors.append(traceback.format_exc())
 
+    try:
+        remove_old_logs()
+    except OSError:
+        oserrors.append(traceback.format_exc())
+
+    rmx_log_name = (f"remix_error_{time.strftime('%Y-%m-%d_%H-%M-%S')}.log")
+    rmx_log_path = consts.LOGS_DIR / rmx_log_name
     if oserrors:
-        log_name = (f"remix_error_{time.strftime('%Y-%m-%d_%H-%M-%S')}.log")
-        with open(consts.EXE_DIR / log_name, 'w') as fp:
-            fp.write(log_name + '\n')
+        with open(rmx_log_path, 'w') as fp:
+            fp.write(rmx_log_name + '\n')
             for err in oserrors:
                 fp.write("==========\n")
                 fp.write(err)
                 fp.write('\n')
-        messagebox.showerror(title="Remix Logs Error", message=f"An error occured while remixing the ppd logs. Please attach {log_name} and every ppd###.log (where ### is any amount of digits) file in your PSLF/PSSE Disambiguator installation directory to your bug report.")
+        messagebox.showerror(title="Remix Logs Error", message=f"An error occured while remixing the ppd logs. Please attach remix_error.log, ppd.log, and the log{os.getpid()} directory in your PSLF/PSSE Disambiguator installation directory to your bug report.")
+
+    # copy the file to the exe directory to be nice to the user
+    with filelock.FileLock(consts.LOG_COPY_LOCK_FILE):
+        try:
+            shutil.copy2(merged_log, consts.EXE_DIR / consts.LOG_FILENAME.format(''))
+            if rmx_log_path.exists():
+                shutil.copy2(rmx_log_path, consts.EXE_DIR / 'remix_error.log')
+        except:
+            blah_txt = f" and '{rmx_log_path}'" if rmx_log_path.exists() else ''
+            big_txt = "An error occurred copying some log files. Please include '{}'{} in your bug report."
+            messagebox.showerror(title="Remix Logs Error",
+                    message=big_txt.format(merged_log, blah_txt))
