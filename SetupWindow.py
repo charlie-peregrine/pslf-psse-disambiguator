@@ -355,6 +355,7 @@ class SetupWindow(tk.Tk):
         
         # set fta here
         if consts.IS_BUNDLED:
+            logger.info("Setting file type association")
             set_file_type_association(sys.executable, "ppd.ico", ".sav")
         else:
             logger.info("skipping set fta for unbundled files")
