@@ -8,7 +8,7 @@ program that the file should be opened in.
 1. Download the latest release from [here]([url](https://github.com/charlie-peregrine/pslf-psse-disambiguator/releases)).
 2. Extract the zip file.
 3. Move the extracted folder to where you would like it to stay on your computer. This could be somewhere specific or it can just live in your downloads folder.
-4. Open the folder and run pslf-psse-disambiguator.py. Follow the instructions.
+4. Open the folder and run pslf-psse-disambiguator.py. If windows smartscreen pops up and says that it's malware, click More Info and then Run Anyway. Follow the setup instructions.
 5. After clicking "OK" the program will automatically set a file type association, and the program will run whenever you open a .sav file on your program.
 
 You should only have to go into the folder and run pslf-psse-disambiguator.py once per install.
