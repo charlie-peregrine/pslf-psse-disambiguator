@@ -11,7 +11,6 @@ a = Analysis(
         ('.\\PS-SFTA\\', './PS-SFTA/'),
         ('.\\img\\*.ico', './img/'),
         ('.\\img\\*.png', './img/'),
-        
     ],
     hiddenimports=[],
     hookspath=[],
