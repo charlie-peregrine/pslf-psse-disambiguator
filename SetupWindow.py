@@ -54,7 +54,7 @@ class SetupWindow(tk.Tk):
         self.title("PSLF/PSSE Disambiguator Setup")
         self.wm_protocol("WM_DELETE_WINDW", self.cancel_command)
         
-        self.iconphoto(True, tk.PhotoImage(file=consts.PPD_DIR / "ppd.png"))
+        self.iconphoto(True, tk.PhotoImage(file=consts.IMG_DIR / "ppd.png"))
         # self.minsize(450, 200)
         # self.geometry("400x200")
         # self.rowconfigure(0, weight=1)
@@ -135,7 +135,7 @@ class SetupWindow(tk.Tk):
 
         icon_size = (16, 16)
         # pslf line with icon, entry, select button
-        image = Image.open(consts.PPD_DIR / "pslf.png").resize(icon_size, Resampling.BICUBIC)
+        image = Image.open(consts.IMG_DIR / "pslf.png").resize(icon_size, Resampling.BICUBIC)
         self.pslf_icon = ImageTk.PhotoImage(image)
         self.pslf_icon_label = ttk.Label(self.exe_frame, compound='left', text='PSLF:', image=self.pslf_icon)
         self.pslf_icon_label.grid(row=1, column=0)
@@ -150,7 +150,7 @@ class SetupWindow(tk.Tk):
         self.pslf_select_button.grid(row=1, column=2)
         
         # psse line with icon, entry, select button
-        image = Image.open(consts.PPD_DIR / "psse.png").resize(icon_size, Resampling.BICUBIC)
+        image = Image.open(consts.IMG_DIR / "psse.png").resize(icon_size, Resampling.BICUBIC)
         self.psse_icon = ImageTk.PhotoImage(image)
         self.psse_icon_label = ttk.Label(self.exe_frame, compound='left', text='PSSE:', image=self.psse_icon)
         self.psse_icon_label.grid(row=2, column=0)
@@ -447,7 +447,7 @@ def is_valid_psse_version(path_to_dir: Path):
 def set_file_type_association(exe_path, icon_name, extension):
     exe_path = Path(exe_path).resolve()
     sfta_path = consts.PPD_DIR / "PS-SFTA\\SFTA.ps1"
-    ico_path = consts.PPD_DIR / icon_name
+    ico_path = consts.IMG_DIR / icon_name
 
     ps_command = f"""Register-FTA '{exe_path}' {extension} -Icon '{ico_path}'"""
     cmd_command = f"""powershell -ExecutionPolicy Bypass -command "& {{ . '{sfta_path}'; {ps_command} }}" """

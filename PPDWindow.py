@@ -37,7 +37,7 @@ class PPDWindow(tk.Tk):
 
         self.option_add('*tearOff', tk.FALSE)
         self.title("PSLF/PSSE Disambiguator")
-        self.iconphoto(True, tk.PhotoImage(file=consts.PPD_DIR / "ppd.png"))
+        self.iconphoto(True, tk.PhotoImage(file=consts.IMG_DIR / "ppd.png"))
         self.config(bg=consts.BG_COLOR)
         self.resizable(False, False)
         self.wm_protocol("WM_DELETE_WINDW", self.close_callback)
@@ -84,11 +84,11 @@ class PPDWindow(tk.Tk):
         self.hint_label.destroy()
         
         # pslf line with icon, entry, select button
-        pslf_image = Image.open(consts.PPD_DIR / "pslf.png").resize(ICON_SIZE, Resampling.BICUBIC)
+        pslf_image = Image.open(consts.IMG_DIR / "pslf.png").resize(ICON_SIZE, Resampling.BICUBIC)
         self.pslf_icon = ImageTk.PhotoImage(pslf_image)
-        psse_image = Image.open(consts.PPD_DIR / "psse.png").resize(ICON_SIZE, Resampling.BICUBIC)
+        psse_image = Image.open(consts.IMG_DIR / "psse.png").resize(ICON_SIZE, Resampling.BICUBIC)
         self.psse_icon = ImageTk.PhotoImage(psse_image)
-        other_image = Image.open(consts.PPD_DIR / "other.png").resize(ICON_SIZE, Resampling.NEAREST)
+        other_image = Image.open(consts.IMG_DIR / "other.png").resize(ICON_SIZE, Resampling.NEAREST)
         self.other_icon = ImageTk.PhotoImage(other_image)
         
         self.pslf_button = ttk.Button(self, image=self.pslf_icon,

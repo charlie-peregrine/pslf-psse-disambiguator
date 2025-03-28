@@ -2,19 +2,15 @@
 
 from PyInstaller.building.api import PYZ, EXE, COLLECT
 from PyInstaller.building.build_main import Analysis
+
 a = Analysis(
     ['pslf-psse-disambiguator.py'],
     pathex=[],
     binaries=[],
     datas=[
         ('.\\PS-SFTA\\', './PS-SFTA/'),
-        ('.\\ppd.ico', '.'),
-        ('.\\psse.ico', '.'),
-        ('.\\pslf.ico', '.'),
-        ('.\\ppd.png', '.'),
-        ('.\\psse.png', '.'),
-        ('.\\pslf.png', '.'),
-        ('.\\other.png', '.'),
+        ('.\\img\\*.ico', './img/'),
+        ('.\\img\\*.png', './img/'),
         
     ],
     hiddenimports=[],

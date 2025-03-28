@@ -56,10 +56,6 @@ logging.basicConfig(
 logger.info("IS_BUNDLED: %s", IS_BUNDLED)
 logger.info("EXE_DIR: %s", EXE_DIR)
 
-# sys.executable is the location of the exe
-# print("> PPD_DIR:", PPD_DIR)
-# print("> EXE_DIR:", EXE_DIR)
-
 DEFAULT_PSLF_DIR_PATH = Path(r"C:\Program Files\GE PSLF")
 DEFAULT_PSSE_DIR_PATH = Path(r"C:\Program Files\PTI\PSSE35\35.6")
 
@@ -69,7 +65,7 @@ PSSE_EXE_SUFFIX = DEFAULT_PSSE_EXE_SUFFIX
 PSLF_PY_SUFFIX = "PslfPython/PSLF_PYTHON.py"
 PSSE_PY_SUFFIX = "PSSPY311/psse35.py"
 
-
+IMG_DIR = PPD_DIR / "img"
 CONFIG_FILENAME = ".ppd-config.json"
 HISTORY_FILENAME = ".history.json"
 
