@@ -5,7 +5,6 @@ import re
 
 import subprocess
 import sys
-from typing import Callable
 from pathlib import Path
 from PIL import Image, ImageTk
 from PIL.Image import Resampling
@@ -68,6 +67,7 @@ class SetupWindow(tk.Tk):
             self.configs['psse_version'] = (-1, -1, -1)
             self.configs['skip_prompt'] = True
             self.configs['use_python'] = False
+            self.configs['wait_ms'] = 475
         else:
             self.configs = configs
             self.configs['pslf'] = Path(self.configs['pslf'])
@@ -349,8 +349,6 @@ class SetupWindow(tk.Tk):
         self.destroy()
         # save configuration
         self.configs['skip_prompt'] = not self.show_prompt_var.get()
-        # import json
-        # print(json.dumps(self.configs, indent=2, default=files.path_default))
         files.save_config(self.configs)
         if not files.load_history():
             files.save_history({})

@@ -62,7 +62,7 @@ class PPDWindow(tk.Tk):
             # wait a little for a ctrl press
             self.focus_force()
             self.key_bind_id = self.bind("<Key>", self.key_bind)
-            self.after_code = self.after(600, self.handle_check_results)
+            self.after_code = self.after(self.configs['wait_ms'], self.handle_check_results)
             logger.info("Bind and after created")
         else:
             # run checks immediately, show prompt here

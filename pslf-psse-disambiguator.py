@@ -53,6 +53,7 @@ if __name__ == '__main__':
     multiprocessing.freeze_support()
     try:
         main()
+        checks.join_close_thread()
     except Exception as e:
         logger.error("==========================")
         logger.error("Main Encountered an error:")
@@ -68,7 +69,6 @@ if __name__ == '__main__':
                     " your bug report. Traceback:\n" + tb
         )
     # input("Press Enter to close")
-    checks.join_close_thread()
     logger.info("Shutting down logging and remixing logs to ppd.log")
     logging.shutdown()
     files.remix_logs()
