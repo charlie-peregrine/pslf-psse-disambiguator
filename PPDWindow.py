@@ -36,7 +36,7 @@ class PPDWindow(tk.Tk):
         self.key_bind_id = ''
 
         self.option_add('*tearOff', tk.FALSE)
-        self.title("PSLF/PSSE Disambiguator")
+        self.title(f"PSLF/PSSE Disambiguator, Version {consts.VERSION}")
         self.iconphoto(True, tk.PhotoImage(file=consts.IMG_DIR / "ppd.png"))
         self.config(bg=consts.BG_COLOR)
         self.resizable(False, False)

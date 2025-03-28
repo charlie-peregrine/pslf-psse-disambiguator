@@ -9,14 +9,19 @@ logger = logging.getLogger(__name__)
 
 import checks
 import files
+import consts
+from updatecheck import start_check_for_update, AvailableUpdateWindow
 from SetupWindow import SetupWindow
 from PPDWindow import PPDWindow
 
 
 def main():
     # set up logging
-    logger.info("Starting main")
+    logger.info("Starting main. PPD Version: %d", consts.VERSION)
     logger.info("Program Arguments: " + str(sys.argv))
+    
+    logger.info("Starting check for update.")
+    update_thread = start_check_for_update()
     
     # try loading config.json
     configs = files.load_config()
@@ -47,6 +52,16 @@ def main():
         ppd_window = PPDWindow(file, configs)
         ppd_window.mainloop()
         logger.info("Disambiguation Finished")
+    
+    logger.info("Joining update check thread")
+    update_thread.join()
+    if update_thread.result:
+        logger.info("Update Available")
+        update_window = AvailableUpdateWindow()
+        update_window.mainloop()
+    else:
+        logger.info("No Update Available")
+    
     logger.info("Exitting Main")
 
 if __name__ == '__main__':

@@ -4,6 +4,7 @@ dist/
 build/
 *.json
 *.exe
+*.txt
 remix_error*.log
 ppd*.log
 debug.log

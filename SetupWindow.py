@@ -51,7 +51,7 @@ class SetupWindow(tk.Tk):
     def __init__(self, configs):
         super().__init__()
         
-        self.title("PSLF/PSSE Disambiguator Setup")
+        self.title(f"PSLF/PSSE Disambiguator Setup, Version {consts.VERSION}")
         self.wm_protocol("WM_DELETE_WINDW", self.cancel_command)
         
         self.iconphoto(True, tk.PhotoImage(file=consts.IMG_DIR / "ppd.png"))
