@@ -83,7 +83,7 @@ class SetupWindow(tk.Tk):
         # after call code and queue
         self.queue = multiprocessing.Queue()
         self.start_after_code = ''
-        self.after_code = ''
+        self.proc_after_code = ''
         self.procs = []
         self.process_listener()
         
@@ -245,7 +245,7 @@ class SetupWindow(tk.Tk):
                 remove_procs.append(p)
         for p in remove_procs:
             self.procs.remove(p)
-        self.after(200, self.process_listener)
+        self.proc_after_code = self.after(200, self.process_listener)
             
     
     def pslf_validate(self, text):
@@ -363,11 +363,16 @@ class SetupWindow(tk.Tk):
         # done tag for letting other stuff run properly after this window is closed
         self.done = True
         # finish active threads
-        self.queue.put(False)
+        self.stop_process_listener()
 
     def cancel_command(self):
-        self.queue.put(False)
+        self.stop_process_listener()
         self.destroy()
+
+    def stop_process_listener(self):
+        self.queue.put(False)
+        self.after_cancel(self.proc_after_code)
+        self.process_listener()
 
 def check_py_library_usability(
     pslf_dir: Path | str, psse_dir: Path | str, q: multiprocessing.Queue
