@@ -56,7 +56,7 @@ logging.basicConfig(
 logger.info("IS_BUNDLED: %s", IS_BUNDLED)
 logger.info("EXE_DIR: %s", EXE_DIR)
 
-VERSION = 0
+VERSION = 1
 GITHUB_REPO_URL = "https://github.com/charlie-peregrine/pslf-psse-disambiguator/releases/latest"
 
 DEFAULT_PSLF_DIR_PATH = Path(r"C:\Program Files\GE PSLF")
