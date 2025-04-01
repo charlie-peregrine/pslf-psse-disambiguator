@@ -86,16 +86,20 @@ def _line_sort_key(x):
 # remove two day old logs and dangling log folders
 def remove_old_logs():
     now = time.time()
-    thirty_minutes_ago = now - 1800
+    one_hour_ago = now - 3600
     two_days_ago = now - 2 * 86400
     for path in consts.LOGS_DIR.iterdir():
-        ctime = path.stat().st_ctime
-        if path.is_dir() and not any(os.scandir(path)):
-            if ctime < thirty_minutes_ago:
-                os.rmdir(path)
-        else:
-            if ctime < two_days_ago:
-                os.remove(path)
+        try:
+            ctime = path.stat().st_ctime
+            if path.is_dir():
+                if ctime < one_hour_ago:
+                    shutil.rmtree(path)
+            else:
+                if ctime < two_days_ago:
+                    os.remove(path)
+        except OSError as e:
+            print(f"Cant remove {path}")
+            print(e)
 
 def remix_logs():
     lines = []
@@ -124,10 +128,7 @@ def remix_logs():
     except OSError:
         oserrors.append(traceback.format_exc())
 
-    try:
-        remove_old_logs()
-    except OSError:
-        oserrors.append(traceback.format_exc())
+    remove_old_logs()
 
     rmx_log_name = (f"remix_error_{time.strftime('%Y-%m-%d_%H-%M-%S')}.log")
     rmx_log_path = consts.LOGS_DIR / rmx_log_name
