@@ -5,7 +5,7 @@ the windows file explorer to automatically determine which model validation
 program that the file should be opened in.
 
 ## Installation
-1. Download the latest release from [here]([url](https://github.com/charlie-peregrine/pslf-psse-disambiguator/releases)). Be sure to download the first zip file, and not either of the source files.
+1. Download the latest release from [here](https://github.com/charlie-peregrine/pslf-psse-disambiguator/releases). Be sure to download the first zip file, and not either of the source files.
 2. Extract the zip file.
 3. Move the extracted folder to where you would like it to stay on your computer. This could be somewhere specific or it can just live in your downloads folder.
 4. Open the folder and run pslf-psse-disambiguator.py. If windows smartscreen pops up and says that it's malware, click More Info and then Run Anyway. Follow the setup instructions.
