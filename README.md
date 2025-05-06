@@ -9,7 +9,7 @@ program that the file should be opened in.
 2. Extract the zip file.
 3. Move the extracted folder to where you would like it to stay on your computer. This could be somewhere specific or it can just live in your downloads folder.
 4. Open the folder and run pslf-psse-disambiguator.py. If windows smartscreen pops up and says that it's malware, click More Info and then Run Anyway. Follow the setup instructions.
-5. After clicking "OK" the program will automatically set a file type association, and the program will run whenever you open a .sav file on your program.
+5. After clicking "OK" the program will automatically set a file type association, and the program will run whenever you open a .sav file on your system.
 
 You should only have to go into the folder and run pslf-psse-disambiguator.py once per install.
 However, you can run the file again to modify your settings.
@@ -35,7 +35,9 @@ your enterred directories are valid, and all the setup information is saved to a
 ### Disambiguator
 The disambiguator window, for the most part, will never actually show up during normal use. It can
 be forced to show by pressing the control key when the loading popup appears, or by checking the 'use prompt'
-checkbox during setup. Whether or not the actual window is shown, under the hood 3 checks are run to determine
+checkbox during setup. Note that it is **highly** recommended to leave the 'use prompt' checkbox unchecked, because
+for the most part the disambiguator window is only for edge cases, malformed sav files, or other program types.
+Whether or not the actual window is shown, under the hood 3 checks are run to determine
 the type of the selected .sav file.
 
 First, the program keeps a history lookup table, and checks that to see if
