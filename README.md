@@ -1,7 +1,7 @@
 # PSLF PSSE Disambiguator (PPD)
 A utility program for running PSLF and PSSE easily on the same computer.
 The purpose of the program is to allow left clicking to start a .sav file in
-the windows file explorer to automatically determine which model validation
+the windows file explorer to automatically determine which power flow simulation
 program that the file should be opened in.
 
 ## Installation
