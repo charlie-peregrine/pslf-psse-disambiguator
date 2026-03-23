@@ -27,7 +27,7 @@ def main():
     configs = files.load_config()
 
     # show setup window
-    if configs is None or len(sys.argv) < 2:
+    if configs is None or len(sys.argv) < 2 or not files.exes_exist(configs):
         logger.info("Starting Setup")
         setupwindow = SetupWindow(configs)
         setupwindow.mainloop()

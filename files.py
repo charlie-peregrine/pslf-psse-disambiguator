@@ -2,7 +2,7 @@
 
 import json
 import os
-from pathlib import PurePath
+from pathlib import PurePath, Path
 import time
 from tkinter import messagebox
 import traceback
@@ -41,6 +41,23 @@ def load_config():
     except (FileNotFoundError, json.decoder.JSONDecodeError) as e:
         logger.info("Config load failed. reason: %s", e)
         return None
+
+def psse_exe_exists(config: dict):
+    psse_path = Path(config['psse']) / consts.PSSE_EXE_SUFFIX
+    exists = psse_path.exists()
+    if not exists:
+        logger.warning(f"PSSE EXE DOES NOT EXIST")
+    return exists
+
+def pslf_exe_exists(config: dict):
+    pslf_path = Path(config['pslf']) / consts.PSLF_EXE_SUFFIX
+    exists = pslf_path.exists()
+    if not exists:
+        logger.warning(f"PSLF EXE DOES NOT EXIST")
+    return exists
+
+def exes_exist(config: dict):
+    return pslf_exe_exists(config) and psse_exe_exists(config)
 
 def set_psse_version(major_version):
     new_suffix = re.sub(
