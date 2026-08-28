@@ -201,7 +201,8 @@ class SetupWindow(tk.Tk):
         
         for frame in (self.exe_frame, self.misc_frame, self.button_frame):
             for widget in frame.winfo_children():
-                widget.grid_configure(padx=4, pady=3)
+                if isinstance(widget, tk.Widget):
+                    widget.grid_configure(padx=4, pady=3)
         self.show_prompt_checkbox.grid_configure(padx=(12, 0))
 
     def process_listener(self):

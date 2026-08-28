@@ -123,7 +123,8 @@ class PPDWindow(tk.Tk):
         self.open_label.grid(row=4, column=2)
         
         for widget in self.winfo_children():
-            widget.grid_configure(padx=4, pady=3)
+            if isinstance(widget, tk.Widget):
+                widget.grid_configure(padx=4, pady=3)
         
         self.built = True
 

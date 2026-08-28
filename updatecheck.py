@@ -107,7 +107,8 @@ class AvailableUpdateWindow(tk.Tk):
         self.snooze_button.grid(row=1, column=3)
 
         for widget in self.winfo_children():
-            widget.grid_configure(padx=3, pady=4)
+            if isinstance(widget, tk.Widget):
+                widget.grid_configure(padx=3, pady=4)
         
     def validate_entry(self, new_val):
         if new_val == '':
