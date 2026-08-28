@@ -59,7 +59,7 @@ logger.info("EXE_DIR: %s", EXE_DIR)
 VERSION = 3
 GITHUB_REPO_URL = "https://github.com/charlie-peregrine/pslf-psse-disambiguator/releases/latest"
 
-DEFAULT_PSLF_DIR_PATH = Path(r"C:\Program Files\GE PSLF")
+DEFAULT_PSLF_DIR_PATH = Path(r"C:\ProgramData\GE_PSLF")
 DEFAULT_PSSE_DIR_PATH = Path(r"C:\Program Files\PTI\PSSE35\35.6")
 
 PSLF_EXE_SUFFIX = "Pslf.exe"
