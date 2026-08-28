@@ -9,6 +9,7 @@ from contextlib import redirect_stdout
 import io
 import traceback
 import logging
+
 logger = logging.getLogger(__name__)
 
 import consts
@@ -18,26 +19,26 @@ CLOSE_THREAD = None
 
 # the codes found at the start of the sav files. offset included
 BYTE_HINTS = {
-    'pslf' : (
-        (0, b'SQLite format'),
-        (8, b'Version'),
+    "pslf": (
+        (0, b"SQLite format"),
+        (8, b"Version"),
     ),
-    'psse' : (
-        (0, b'FuP_pHySPCD%'),
-    )
+    "psse": ((0, b"FuP_pHySPCD%"),),
 }
 
+
 def bytes_check(file):
-    with open(file, 'rb') as fp:
+    with open(file, "rb") as fp:
         head = fp.read(32)
         for program, hints in BYTE_HINTS.items():
             for offset, code in hints:
-                slice_ = head[offset:offset+len(code)]
+                slice_ = head[offset : offset + len(code)]
                 eq = slice_ == code
                 logger.info(f"{repr(slice_)} == {repr(code)} -> {eq}")
                 if eq:
                     return program
-    return ''
+    return ""
+
 
 def history_check(file):
     history = files.load_history()
@@ -46,23 +47,32 @@ def history_check(file):
         return history[file]
     else:
         logger.info(f"File not found in history: {file}")
-        return ''
+        return ""
+
 
 def open_check_pslf(file, prog_dir, queue_: multiprocessing.Queue):
     # add paths to import search paths
     pslf_py_path = Path(prog_dir) / consts.PSLF_PY_SUFFIX
     sys.path.append(str(pslf_py_path.parent))
-    
+
+    working_dir = Path(file).parent
+    term_log_holder = files.hold_term_log(working_dir)
+
     pslf_good = False
     popen_obj = None
     try:
-        from PSLF_PYTHON import Pslf, PSLFInstance, exit_pslf
+        from PSLF_PYTHON import Pslf, PSLFInstance
+
         path = Path(consts.PSLF_EXE_SUFFIX).name
-        args = [path, "-w", str(Path(file).parent), "-s"]
+        args = [path, "-w", str(working_dir), "-s"]
         # Call subprocess
-        popen_obj = subprocess.Popen(args,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        popen_obj = subprocess.Popen(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
         PSLFInstance.instance = str(popen_obj.pid)
 
         # check here
@@ -71,22 +81,27 @@ def open_check_pslf(file, prog_dir, queue_: multiprocessing.Queue):
             pslf_good = True
         except Exception:
             pslf_good = False
-        queue_.put('pslf' if pslf_good else '')
-        
-        exit_pslf()
-        
+        queue_.put("pslf" if pslf_good else "")
+
+        popen_obj.kill()
+        popen_obj.wait()
+
     except Exception as e:
         logger.error("==== open_check_pslf ERROR ====")
-        for line in traceback.format_exc().split('\n'):
+        for line in traceback.format_exc().split("\n"):
             logger.error(line)
         logger.error("==== open_check_pslf ERROR END ====")
     if popen_obj is not None and popen_obj.stdout is not None:
         out = popen_obj.stdout.read()
         logger.info("== PSLF output:")
-        for line in out.split('\n'):
+        for line in out.split("\n"):
             logger.info(line)
         logger.info("== end PSLF output")
+
+    term_log_holder.cleanup()
+
     return pslf_good
+
 
 def open_check_psse(file, prog_dir, queue_: multiprocessing.Queue):
     with redirect_stdout(io.StringIO()) as out:
@@ -94,37 +109,41 @@ def open_check_psse(file, prog_dir, queue_: multiprocessing.Queue):
         sys.path.append(str(psse_py_path.parent))
         psse_good = True
         try:
-            import psse35 # type: ignore
-            import psspy # type: ignore
+            import psse35  # type: ignore
+            import psspy  # type: ignore
+
             psspy.psseinit()
-            queue_.put('psse' if psspy.case(file) == 0 else '')
+            queue_.put("psse" if psspy.case(file) == 0 else "")
             psspy.pssehalt_2()
-            
+
         except Exception as e:
             logger.error("==== open_check_psse ERROR ====")
-            for line in traceback.format_exc().split('\n'):
+            for line in traceback.format_exc().split("\n"):
                 logger.error(line)
             logger.error("==== open_check_psse ERROR END ====")
     logger.info("== PSSE output:")
-    for line in out.getvalue().split('\n'):
+    for line in out.getvalue().split("\n"):
         logger.info(line)
     logger.info("== end PSSE output")
     return psse_good
 
+
 def open_check(file):
     configs = files.load_config()
     if configs is None:
-        return ''
+        return ""
     q = multiprocessing.Queue()
     logger.info("Starting Process 1")
-    p1 = multiprocessing.Process(target=open_check_pslf,
-            args=(file, configs['pslf'], q), daemon=True)
+    p1 = multiprocessing.Process(
+        target=open_check_pslf, args=(file, configs["pslf"], q), daemon=True
+    )
     p1.start()
     logger.info("Starting Process 2")
-    p2 = multiprocessing.Process(target=open_check_psse,
-            args=(file, configs['psse'], q), daemon=True)
+    p2 = multiprocessing.Process(
+        target=open_check_psse, args=(file, configs["psse"], q), daemon=True
+    )
     p2.start()
-    
+
     def join_processes(p1, p2):
         logger.info("Joining Process 1")
         p1.join()
@@ -132,7 +151,7 @@ def open_check(file):
         logger.info("Joining Process 2")
         p2.join()
         logger.info("Process 2 Joined")
-    
+
     logger.info("Starting join processed thread")
     global CLOSE_THREAD
     CLOSE_THREAD = threading.Thread(target=join_processes, args=(p1, p2))
@@ -140,7 +159,7 @@ def open_check(file):
 
     logger.info("Waiting for queue")
     checked = 0
-    result = ''
+    result = ""
     while checked < 2:
         val = q.get()
         checked += 1
@@ -148,8 +167,9 @@ def open_check(file):
             result = val
             break
     logger.info("Done waiting for queue")
-    
+
     return result
+
 
 def join_close_thread():
     if CLOSE_THREAD is not None:
