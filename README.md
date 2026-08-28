@@ -50,7 +50,7 @@ opens the file is determined to be the correct program.
 ### Update checker
 During every run, the program checks to see if this repository contains an update, and will show a window after the
 program runs to allow the user to update. You can also snooze this reminder, and the snooze increment is as many
-days as you want.
+days as you want, but will be automatically capped at 14 days.
 
 
 ## Build Requirements
