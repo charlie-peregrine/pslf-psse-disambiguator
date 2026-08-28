@@ -127,6 +127,7 @@ class AvailableUpdateWindow(tk.Tk):
     def snooze_callback(self):
         logger.info("Running snooze_callback")
         snooze_days = float(self.snooze_entry.get() or '0')
+        snooze_days = min(snooze_days, 14.0)
         try:
             with open(consts.EXE_DIR / SNOOZE_FILE_NAME, 'w') as fp:
                 date = datetime.datetime.now() + datetime.timedelta(days=snooze_days)
